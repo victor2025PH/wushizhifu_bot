@@ -1,0 +1,18 @@
+[Unit]
+Description=WuShiPay Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/wushizhifu/bot
+Environment="PATH=/home/ubuntu/wushizhifu/bot/venv/bin"
+ExecStart=/home/ubuntu/wushizhifu/bot/venv/bin/python /home/ubuntu/wushizhifu/bot/bot.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+

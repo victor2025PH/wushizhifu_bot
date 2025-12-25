@@ -10,6 +10,7 @@ from keyboards.transaction_kb import (
     get_transaction_detail_keyboard
 )
 from keyboards.main_kb import get_main_keyboard
+from database.admin_repository import AdminRepository
 from services.transaction_service import TransactionService
 from utils.text_utils import escape_markdown_v2
 
@@ -32,7 +33,8 @@ async def callback_transactions(callback: CallbackQuery):
                 "暫無交易記錄\n\n"
                 "開始您的第一筆交易吧！"
             )
-            keyboard = get_main_keyboard()
+            is_admin = AdminRepository.is_admin(user_id)
+            keyboard = get_main_keyboard(user_id=user_id, is_admin=is_admin)
         else:
             text = f"*📜 交易記錄*\n\n*最近 {len(transactions)} 筆交易：*\n\n"
             

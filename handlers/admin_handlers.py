@@ -289,10 +289,12 @@ async def callback_main_menu(callback: CallbackQuery):
         is_new = UserService.is_new_user(user.id)
         welcome_text = MessageService.generate_welcome_message(user, is_new)
         
+        is_admin = AdminRepository.is_admin(user.id)
+        
         await callback.message.edit_text(
             text=welcome_text,
             parse_mode="MarkdownV2",
-            reply_markup=get_main_keyboard()
+            reply_markup=get_main_keyboard(user_id=user.id, is_admin=is_admin)
         )
         await callback.answer()
         

@@ -5,9 +5,11 @@ import logging
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import Command
+from config import Config
 from keyboards.main_kb import get_main_keyboard
 from services.user_service import UserService
 from services.message_service import MessageService
+from database.admin_repository import AdminRepository
 
 # Create router for user handlers
 user_router = Router()
@@ -26,14 +28,17 @@ async def cmd_start(message: Message):
         # Check if user is new
         is_new_user = UserService.is_new_user(user.id)
         
+        # Check if user is admin
+        is_admin = AdminRepository.is_admin(user.id)
+        
         # Generate professional welcome message
         welcome_text = MessageService.generate_welcome_message(user, is_new_user)
         
-        # Send message
+        # Send message with keyboard (pass admin status)
         await message.answer(
             text=welcome_text,
             parse_mode="MarkdownV2",
-            reply_markup=get_main_keyboard()
+            reply_markup=get_main_keyboard(user_id=user.id, is_admin=is_admin)
         )
         
         # Log user interaction
@@ -46,28 +51,58 @@ async def cmd_start(message: Message):
         )
 
 
-@user_router.callback_query(F.data == "pay_ali")
-async def callback_pay_ali(callback: CallbackQuery):
-    """Handle Alipay payment channel callback"""
+@user_router.message(Command("help"))
+async def cmd_help(message: Message):
+    """
+    Handle /help command.
+    Provides usage instructions for the bot.
+    """
     try:
-        await callback.answer("正在啟動支付寶通道...", show_alert=False)
-        # TODO: Implement Alipay payment flow
-        logger.info(f"User {callback.from_user.id} selected Alipay payment channel")
+        user = message.from_user
+        is_admin = AdminRepository.is_admin(user.id)
+        
+        help_text = (
+            "*📖 伍拾支付 Bot 使用指南*\n\n"
+            "*主要功能：*\n"
+            "• 💎 *启动收银台*：打开 MiniApp 主界面\n"
+            "• 💳 *支付宝/微信支付*：选择支付通道\n"
+            "• 📜 *交易记录*：查看历史交易\n"
+            "• 🧮 *汇率计算器*：计算手续费和汇率\n"
+            "• 💰 *我的钱包*：查看钱包信息\n"
+            "• ⚙️ *个人设置*：账户设置\n"
+            "• 📊 *统计信息*：查看交易统计\n"
+            "• 💬 *客服支持*：联系人工客服\n"
+            "• 🤖 *AI 助手*：智能客服助手\n\n"
+        )
+        
+        if is_admin:
+            help_text += "*管理员功能：*\n"
+            help_text += "• ⚙️ *管理面板*：访问管理功能\n"
+            help_text += "• `/admin`：打开管理面板\n\n"
+        
+        help_text += (
+            "*常用命令：*\n"
+            "• `/start` - 开始使用\n"
+            "• `/help` - 显示帮助信息\n\n"
+            "*提示：*\n"
+            "点击「💎 启动伍拾收银台」按钮可快速打开 MiniApp\\。\n"
+            "也可以点击聊天界面顶部的「打开应用」按钮\\。"
+        )
+        
+        await message.answer(
+            text=help_text,
+            parse_mode="MarkdownV2",
+            reply_markup=get_main_keyboard(user_id=user.id, is_admin=is_admin)
+        )
+        
+        logger.info(f"User {user.id} ({user.username or 'no username'}) sent /help command")
+        
     except Exception as e:
-        logger.error(f"Error in callback_pay_ali: {e}", exc_info=True)
-        await callback.answer("❌ 系統錯誤，請稍後再試", show_alert=True)
+        logger.error(f"Error in cmd_help: {e}", exc_info=True)
+        await message.answer("❌ 抱歉，無法顯示幫助信息。請稍後再試。")
 
 
-@user_router.callback_query(F.data == "pay_wechat")
-async def callback_pay_wechat(callback: CallbackQuery):
-    """Handle WeChat payment channel callback"""
-    try:
-        await callback.answer("正在啟動微信支付通道...", show_alert=False)
-        # TODO: Implement WeChat payment flow
-        logger.info(f"User {callback.from_user.id} selected WeChat payment channel")
-    except Exception as e:
-        logger.error(f"Error in callback_pay_wechat: {e}", exc_info=True)
-        await callback.answer("❌ 系統錯誤，請稍後再試", show_alert=True)
+# 支付按鈕現在使用 web_app 跳轉到 MiniApp，不再需要這些回調
 
 
 @user_router.callback_query(F.data == "rates")
@@ -76,10 +111,12 @@ async def callback_rates(callback: CallbackQuery):
     try:
         rates_text = MessageService.generate_rates_message()
         
+        is_admin = AdminRepository.is_admin(callback.from_user.id)
+        
         await callback.message.edit_text(
             text=rates_text,
             parse_mode="MarkdownV2",
-            reply_markup=get_main_keyboard()
+            reply_markup=get_main_keyboard(user_id=callback.from_user.id, is_admin=is_admin)
         )
         await callback.answer("費率信息已更新")
         
@@ -122,10 +159,13 @@ async def callback_statistics(callback: CallbackQuery):
         else:
             text = "*📊 我的統計*\n\n暫無數據"
         
+        # Get admin status for keyboard
+        is_admin = AdminRepository.is_admin(callback.from_user.id)
+        
         await callback.message.edit_text(
             text=text,
             parse_mode="MarkdownV2",
-            reply_markup=get_main_keyboard()
+            reply_markup=get_main_keyboard(user_id=callback.from_user.id, is_admin=is_admin)
         )
         await callback.answer()
         
@@ -151,10 +191,13 @@ async def callback_settings(callback: CallbackQuery):
         if is_admin:
             text += "您擁有管理員權限，可使用 `\\/admin` 命令訪問管理面板"
         
+        # Get admin status for keyboard
+        is_admin = AdminRepository.is_admin(callback.from_user.id)
+        
         await callback.message.edit_text(
             text=text,
             parse_mode="MarkdownV2",
-            reply_markup=get_main_keyboard()
+            reply_markup=get_main_keyboard(user_id=callback.from_user.id, is_admin=is_admin)
         )
         await callback.answer()
         

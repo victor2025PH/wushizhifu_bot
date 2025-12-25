@@ -17,6 +17,8 @@ from handlers.calculator_handlers import router as calculator_router
 from handlers.transaction_handlers import router as transaction_router
 from handlers.admin_handlers import router as admin_router
 from handlers.group_handlers import router as group_router
+from handlers.ai_handlers import router as ai_router
+from utils.bot_setup import setup_bot_commands, setup_menu_button, setup_bot_info
 from middleware.user_tracking import UserTrackingMiddleware
 from middleware.group_middleware import GroupMiddleware
 
@@ -40,6 +42,14 @@ async def on_startup(bot: Bot):
     except Exception as e:
         logger.error(f"❌ Database initialization error: {e}")
         raise
+    
+    # Set up bot commands, menu button, and description
+    try:
+        await setup_bot_commands(bot)
+        await setup_menu_button(bot)
+        await setup_bot_info(bot)
+    except Exception as e:
+        logger.warning(f"⚠️ Some bot setup operations failed: {e}")
     
     bot_info = await bot.get_me()
     logger.info("=" * 50)
@@ -83,13 +93,14 @@ async def main():
     dp.callback_query.middleware(UserTrackingMiddleware())
     dp.message.middleware(GroupMiddleware())
     
-    # Include routers (order matters)
+    # Include routers (order matters - AI router should be last to catch all non-command messages)
     dp.include_router(user_router)
     dp.include_router(payment_router)
     dp.include_router(calculator_router)
     dp.include_router(transaction_router)
     dp.include_router(admin_router)
     dp.include_router(group_router)
+    dp.include_router(ai_router)  # AI router should be last
     
     # Register startup/shutdown handlers
     dp.startup.register(on_startup)
