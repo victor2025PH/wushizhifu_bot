@@ -21,13 +21,18 @@ class UserService:
         Returns:
             User data dictionary
         """
+        # Get is_premium, handle None case properly
+        is_premium = getattr(user, "is_premium", False)
+        if is_premium is None:
+            is_premium = False
+        
         return UserRepository.create_or_update_user(
             user_id=user.id,
             username=user.username,
             first_name=user.first_name,
             last_name=user.last_name,
             language_code=getattr(user, "language_code", None),
-            is_premium=getattr(user, "is_premium", False)
+            is_premium=bool(is_premium)
         )
     
     @classmethod

@@ -3,9 +3,10 @@ Main keyboard layouts for WuShiPay Telegram Bot
 """
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from config import Config
+from database.admin_repository import AdminRepository
 
 
-def get_main_keyboard() -> InlineKeyboardMarkup:
+def get_main_keyboard(user_id: int = None, is_admin: bool = False) -> InlineKeyboardMarkup:
     """
     Returns the main inline keyboard for the bot.
     
@@ -19,9 +20,12 @@ def get_main_keyboard() -> InlineKeyboardMarkup:
     - Row 7: Admin Panel (僅管理員可見)
     
     Args:
-        user_id: User ID for admin check
-        is_admin: Whether user is admin (if provided, skips check)
+        user_id: User ID for admin check (optional, used if is_admin not provided)
+        is_admin: Whether user is admin (if not provided, will check using user_id)
     """
+    # If is_admin not provided but user_id is, check admin status
+    if not is_admin and user_id is not None:
+        is_admin = AdminRepository.is_admin(user_id)
     keyboard_rows = []
     
     # Row 1: Launch Mini App

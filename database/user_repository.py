@@ -41,6 +41,9 @@ class UserRepository:
             
             now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
             
+            # Handle is_premium: convert to int, default to 0 if None
+            is_premium_int = 1 if (is_premium is True or is_premium == 1) else 0
+            
             if existing:
                 # Update existing user
                 cursor.execute("""
@@ -50,7 +53,7 @@ class UserRepository:
                         last_active_at = ?, updated_at = ?
                     WHERE user_id = ?
                 """, (username, first_name, last_name, language_code, 
-                      int(is_premium), now, now, user_id))
+                      is_premium_int, now, now, user_id))
             else:
                 # Create new user
                 cursor.execute("""
@@ -59,7 +62,7 @@ class UserRepository:
                      is_premium, created_at, updated_at, last_active_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (user_id, username, first_name, last_name, language_code,
-                      int(is_premium), now, now, now))
+                      is_premium_int, now, now, now))
             
             conn.commit()
             
