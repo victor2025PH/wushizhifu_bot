@@ -32,6 +32,19 @@ def get_calculator_channel_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
+def get_exchange_direction_keyboard() -> InlineKeyboardMarkup:
+    """Keyboard for selecting exchange direction"""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="USDT → CNY", callback_data="exchange_usdt_cny"),
+            InlineKeyboardButton(text="CNY → USDT", callback_data="exchange_cny_usdt")
+        ],
+        [
+            InlineKeyboardButton(text="🔙 返回", callback_data="calculator")
+        ]
+    ])
+
+
 def get_calculator_result_keyboard(use_for_order: bool = False) -> InlineKeyboardMarkup:
     """Keyboard after calculator result"""
     buttons = []

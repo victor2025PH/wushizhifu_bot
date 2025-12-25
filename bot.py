@@ -15,6 +15,8 @@ from handlers.user_handlers import user_router
 from handlers.payment_handlers import router as payment_router
 from handlers.calculator_handlers import router as calculator_router
 from handlers.transaction_handlers import router as transaction_router
+from handlers.wallet_handlers import router as wallet_router
+from handlers.settings_handlers import router as settings_router
 from handlers.admin_handlers import router as admin_router
 from handlers.group_handlers import router as group_router
 from handlers.ai_handlers import router as ai_router
@@ -98,6 +100,8 @@ async def main():
     dp.include_router(payment_router)
     dp.include_router(calculator_router)
     dp.include_router(transaction_router)
+    dp.include_router(wallet_router)
+    dp.include_router(settings_router)
     dp.include_router(admin_router)
     dp.include_router(group_router)
     dp.include_router(ai_router)  # AI router should be last

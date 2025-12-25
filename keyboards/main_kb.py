@@ -36,39 +36,39 @@ def get_main_keyboard(user_id: int = None, is_admin: bool = False) -> InlineKeyb
         )
     ])
     
-    # Row 2: Payment channels (跳轉到 MiniApp)
+    # Row 2: Payment channels (Bot 内部功能)
     keyboard_rows.append([
         InlineKeyboardButton(
             text="💳 支付宝",
-            web_app=WebAppInfo(url=Config.get_miniapp_url("dashboard", "alipay"))
+            callback_data="pay_ali"
         ),
         InlineKeyboardButton(
             text="🍀 微信支付",
-            web_app=WebAppInfo(url=Config.get_miniapp_url("dashboard", "wechat"))
+            callback_data="pay_wechat"
         )
     ])
     
-    # Row 3: Transaction records and Calculator (跳轉到 MiniApp)
+    # Row 3: Transaction records and Calculator (Bot 内部功能)
     keyboard_rows.append([
         InlineKeyboardButton(
             text="📜 交易记录",
-            web_app=WebAppInfo(url=Config.get_miniapp_url("history"))
+            callback_data="transactions"
         ),
         InlineKeyboardButton(
             text="🧮 汇率计算器",
-            web_app=WebAppInfo(url=Config.get_miniapp_url("calculator"))
+            callback_data="calculator"
         )
     ])
     
-    # Row 4: Wallet and Settings (跳轉到 MiniApp)
+    # Row 4: Wallet and Settings (Bot 内部功能)
     keyboard_rows.append([
         InlineKeyboardButton(
             text="💰 我的钱包",
-            web_app=WebAppInfo(url=Config.get_miniapp_url("wallet"))
+            callback_data="wallet"
         ),
         InlineKeyboardButton(
             text="⚙️ 个人设置",
-            web_app=WebAppInfo(url=Config.get_miniapp_url("profile"))
+            callback_data="settings"
         )
     ])
     

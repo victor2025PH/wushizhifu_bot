@@ -25,11 +25,11 @@ _payment_states = {}
 async def callback_pay_ali(callback: CallbackQuery):
     """Handle Alipay payment channel selection"""
     try:
-        await callback.answer("正在啟動支付寶通道...", show_alert=False)
+        await callback.answer("正在启动支付宝通道...", show_alert=False)
         
         text = (
-            "*💳 支付寶通道*\n\n"
-            "請選擇支付類型："
+            "*💳 支付宝通道*\n\n"
+            "请选择支付类型："
         )
         
         await callback.message.edit_text(
@@ -44,7 +44,7 @@ async def callback_pay_ali(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_pay_ali: {e}", exc_info=True)
-        await callback.answer("❌ 系統錯誤，請稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
 
 
 @router.callback_query(F.data == "pay_wechat")
@@ -55,7 +55,7 @@ async def callback_pay_wechat(callback: CallbackQuery):
         
         text = (
             "*🍀 微信支付通道*\n\n"
-            "請選擇支付類型："
+            "请选择支付類型："
         )
         
         await callback.message.edit_text(
@@ -70,7 +70,7 @@ async def callback_pay_wechat(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_pay_wechat: {e}", exc_info=True)
-        await callback.answer("❌ 系統錯誤，請稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
 
 
 @router.callback_query(F.data.in_(["payment_receive", "payment_pay"]))
@@ -81,21 +81,21 @@ async def callback_payment_type(callback: CallbackQuery):
         user_id = callback.from_user.id
         
         if user_id not in _payment_states:
-            await callback.answer("❌ 請重新選擇支付通道", show_alert=True)
+            await callback.answer("❌ 请重新选择支付通道", show_alert=True)
             return
         
         _payment_states[user_id]["type"] = transaction_type
         
         type_text = "收款" if transaction_type == "receive" else "付款"
-        channel = _payment_states[user_id].get("channel", "支付寶")
+        channel = _payment_states[user_id].get("channel", "支付宝")
         
         text = (
             f"*{type_text}* \\(通道: {channel}\\)\n\n"
-            "請輸入金額：\n"
-            "格式：數字（如：100\\.50）\n"
-            "最小金額：¥1\n"
-            "最大金額：¥500,000\n\n"
-            "或選擇快捷金額："
+            "请输入金额：\n"
+            "格式：数字（如：100\\.50）\n"
+            "最小金额：¥1\n"
+            "最大金额：¥500,000\n\n"
+            "或选择快捷金额："
         )
         
         await callback.message.edit_text(
@@ -108,7 +108,7 @@ async def callback_payment_type(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_payment_type: {e}", exc_info=True)
-        await callback.answer("❌ 系統錯誤，請稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("amount_"))
@@ -120,14 +120,14 @@ async def callback_amount_quick(callback: CallbackQuery):
         
         user_id = callback.from_user.id
         if user_id not in _payment_states:
-            await callback.answer("❌ 請重新選擇支付通道", show_alert=True)
+            await callback.answer("❌ 请重新选择支付通道", show_alert=True)
             return
         
         await process_amount(callback, amount)
         
     except Exception as e:
         logger.error(f"Error in callback_amount_quick: {e}", exc_info=True)
-        await callback.answer("❌ 系統錯誤，請稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
 
 
 async def process_amount(callback: CallbackQuery, amount: float):
@@ -150,17 +150,17 @@ async def process_amount(callback: CallbackQuery, amount: float):
     _payment_states[user_id]["calc_result"] = calc_result
     
     type_text = "收款" if transaction_type == "receive" else "付款"
-    channel_text = "支付寶" if channel == "alipay" else "微信"
+    channel_text = "支付宝" if channel == "alipay" else "微信"
     
     text = (
-        f"*📊 訂單詳情*\n\n"
+        f"*📊 订单详情*\n\n"
         f"類型：{type_text}\n"
         f"通道：{channel_text}\n"
-        f"交易金額：¥{amount:,.2f}\n"
-        f"費率：{calc_result['rate_percentage']:.2f}%\n"
-        f"手續費：¥{calc_result['fee']:,.2f}\n"
-        f"實際{'到賬' if transaction_type == 'receive' else '支付'}：¥{calc_result['actual_amount']:,.2f}\n\n"
-        "請確認是否創建訂單："
+        f"交易金额：¥{amount:,.2f}\n"
+        f"费率：{calc_result['rate_percentage']:.2f}%\n"
+        f"手续费：¥{calc_result['fee']:,.2f}\n"
+        f"实际{'到账' if transaction_type == 'receive' else '支付'}：¥{calc_result['actual_amount']:,.2f}\n\n"
+        "请确认是否创建订单："
     )
     
     await callback.message.edit_text(
@@ -180,7 +180,7 @@ async def callback_confirm_order(callback: CallbackQuery):
         state = _payment_states.get(user_id, {})
         
         if not state.get("amount") or not state.get("calc_result"):
-            await callback.answer("❌ 訂單信息不完整，請重新操作", show_alert=True)
+            await callback.answer("❌ 订单信息不完整，请重新操作", show_alert=True)
             return
         
         channel = state.get("channel", "alipay")
@@ -194,7 +194,7 @@ async def callback_confirm_order(callback: CallbackQuery):
             transaction_type=transaction_type,
             payment_channel=channel,
             amount=amount,
-            description=f"{'收款' if transaction_type == 'receive' else '付款'}訂單"
+            description=f"{'收款' if transaction_type == 'receive' else '付款'}订单"
         )
         
         order_id = transaction["order_id"]
@@ -203,18 +203,18 @@ async def callback_confirm_order(callback: CallbackQuery):
         _payment_states.pop(user_id, None)
         
         type_text = "收款" if transaction_type == "receive" else "付款"
-        channel_text = "支付寶" if channel == "alipay" else "微信"
+        channel_text = "支付宝" if channel == "alipay" else "微信"
         
         text = (
-            f"*✅ 訂單已創建*\n\n"
-            f"訂單號：`{order_id}`\n"
+            f"*✅ 订单已创建*\n\n"
+            f"订单號：`{order_id}`\n"
             f"類型：{type_text}\n"
             f"通道：{channel_text}\n"
-            f"金額：¥{amount:,.2f}\n"
-            f"手續費：¥{calc_result['fee']:,.2f}\n"
-            f"實際{'到賬' if transaction_type == 'receive' else '支付'}：¥{calc_result['actual_amount']:,.2f}\n"
-            f"狀態：待支付\n\n"
-            "⚠️ 支付功能開發中，此為演示訂單"
+            f"金额：¥{amount:,.2f}\n"
+            f"手续费：¥{calc_result['fee']:,.2f}\n"
+            f"实际{'到账' if transaction_type == 'receive' else '支付'}：¥{calc_result['actual_amount']:,.2f}\n"
+            f"状态：待支付\n\n"
+            "⚠️ 支付功能开发中，此为演示订单"
         )
         
         await callback.message.edit_text(
@@ -223,11 +223,11 @@ async def callback_confirm_order(callback: CallbackQuery):
             reply_markup=get_order_detail_keyboard(order_id)
         )
         
-        await callback.answer("訂單創建成功")
+        await callback.answer("订单创建成功")
         
         logger.info(f"User {user_id} created order {order_id}")
         
     except Exception as e:
         logger.error(f"Error in callback_confirm_order: {e}", exc_info=True)
-        await callback.answer("❌ 創建訂單失敗，請稍後再試", show_alert=True)
+        await callback.answer("❌ 创建订单失敗，请稍後再試", show_alert=True)
 

@@ -29,31 +29,31 @@ async def callback_transactions(callback: CallbackQuery):
         
         if not transactions:
             text = (
-                "*📜 交易記錄*\n\n"
-                "暫無交易記錄\n\n"
-                "開始您的第一筆交易吧！"
+                "*📜 交易记录*\n\n"
+                "暂无交易记录\n\n"
+                "开始您的第一笔交易吧！"
             )
             is_admin = AdminRepository.is_admin(user_id)
             keyboard = get_main_keyboard(user_id=user_id, is_admin=is_admin)
         else:
-            text = f"*📜 交易記錄*\n\n*最近 {len(transactions)} 筆交易：*\n\n"
+            text = f"*📜 交易记录*\n\n*最近 {len(transactions)} 笔交易：*\n\n"
             
             for trans in transactions[:5]:  # Show first 5
                 status_icon = "✅" if trans['status'] == 'paid' else "⏳" if trans['status'] == 'pending' else "❌"
                 type_text = "收款" if trans['transaction_type'] == 'receive' else "付款"
-                channel_text = "支付寶" if trans['payment_channel'] == 'alipay' else "微信"
+                channel_text = "支付宝" if trans['payment_channel'] == 'alipay' else "微信"
                 
                 created_at = trans['created_at']
                 text += (
                     f"{status_icon} {type_text} ¥{trans['amount']:,.2f} \\| "
                     f"{channel_text} \\| {created_at}\n"
-                    f"  訂單號：`{trans['order_id']}`\n\n"
+                    f"  订单号：`{trans['order_id']}`\n\n"
                 )
             
             if len(transactions) > 5:
-                text += f"\n還有 {len(transactions) - 5} 筆交易..."
+                text += f"\n还有 {len(transactions) - 5} 笔交易..."
             
-            text += "\n[查看全部記錄] [篩選查詢]"
+            text += "\n点击下方按钮筛选或查看全部记录"
             
             keyboard = get_transaction_filter_keyboard()
         
@@ -67,20 +67,33 @@ async def callback_transactions(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_transactions: {e}", exc_info=True)
-        await callback.answer("❌ 獲取交易記錄失敗，請稍後再試", show_alert=True)
+        await callback.answer("❌ 获取交易记录失败，请稍后再试", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("filter_"))
 async def callback_filter_transactions(callback: CallbackQuery):
     """Handle transaction filtering"""
     try:
+        from datetime import datetime, timedelta
+        from database.db import db
+        
         filter_type = callback.data.split("_")[1]
         user_id = callback.from_user.id
         
         transaction_type = None
         channel = None
+        date_filter = None
         
-        if filter_type == "receive":
+        # Date filters
+        if filter_type == "today":
+            date_filter = datetime.now().strftime("%Y-%m-%d")
+        elif filter_type == "week":
+            week_ago = datetime.now() - timedelta(days=7)
+            date_filter = week_ago.strftime("%Y-%m-%d")
+        elif filter_type == "month":
+            month_ago = datetime.now() - timedelta(days=30)
+            date_filter = month_ago.strftime("%Y-%m-%d")
+        elif filter_type == "receive":
             transaction_type = "receive"
         elif filter_type == "pay":
             transaction_type = "pay"
@@ -90,33 +103,51 @@ async def callback_filter_transactions(callback: CallbackQuery):
             channel = "wechat"
         elif filter_type == "all":
             pass  # No filter
-        # TODO: Implement date filters (today, week, month)
         
-        transactions = TransactionService.get_user_transactions(
-            user_id, limit=20, transaction_type=transaction_type
-        )
+        # Build query with filters
+        query = "SELECT * FROM transactions WHERE user_id = ?"
+        params = [user_id]
+        
+        if date_filter:
+            # SQLite date comparison
+            query += " AND DATE(created_at) >= ?"
+            params.append(date_filter)
+        
+        if transaction_type:
+            query += " AND transaction_type = ?"
+            params.append(transaction_type)
         
         if channel:
-            transactions = [t for t in transactions if t['payment_channel'] == channel]
+            query += " AND payment_channel = ?"
+            params.append(channel)
+        
+        query += " ORDER BY created_at DESC LIMIT 20"
+        
+        cursor = db.execute(query, tuple(params))
+        transactions = [dict(row) for row in cursor.fetchall()]
         
         if not transactions:
-            text = "*📜 交易記錄*\n\n暫無符合條件的交易記錄"
+            text = "*📜 交易记录*\n\n暂无符合条件的交易记录"
         else:
-            text = f"*📜 交易記錄*\n\n*找到 {len(transactions)} 筆交易：*\n\n"
+            text = f"*📜 交易记录*\n\n*找到 {len(transactions)} 笔交易：*\n\n"
             
             for trans in transactions[:10]:
                 status_icon = "✅" if trans['status'] == 'paid' else "⏳" if trans['status'] == 'pending' else "❌"
                 type_text = "收款" if trans['transaction_type'] == 'receive' else "付款"
-                channel_text = "支付寶" if trans['payment_channel'] == 'alipay' else "微信"
+                channel_text = "支付宝" if trans['payment_channel'] == 'alipay' else "微信"
+                
+                created_at = trans['created_at'] if isinstance(trans['created_at'], str) else str(trans['created_at'])
+                if len(created_at) > 10:
+                    created_at = created_at[:16]
                 
                 text += (
                     f"{status_icon} {type_text} ¥{trans['amount']:,.2f} \\| "
-                    f"{channel_text} \\| {trans['created_at']}\n"
-                    f"  `{trans['order_id']}`\n\n"
+                    f"{channel_text} \\| {created_at}\n"
+                    f"  订单号：`{trans['order_id']}`\n\n"
                 )
             
             if len(transactions) > 10:
-                text += f"\n還有 {len(transactions) - 10} 筆..."
+                text += f"\n还有 {len(transactions) - 10} 笔..."
         
         await callback.message.edit_text(
             text=text,
@@ -124,11 +155,22 @@ async def callback_filter_transactions(callback: CallbackQuery):
             reply_markup=get_transaction_list_keyboard(0, len(transactions) > 10)
         )
         
-        await callback.answer(f"已篩選：{filter_type}")
+        filter_name_map = {
+            "today": "今天",
+            "week": "本周",
+            "month": "本月",
+            "receive": "收款",
+            "pay": "付款",
+            "alipay": "支付宝",
+            "wechat": "微信",
+            "all": "全部"
+        }
+        filter_name = filter_name_map.get(filter_type, filter_type)
+        await callback.answer(f"已筛选：{filter_name}")
         
     except Exception as e:
         logger.error(f"Error in callback_filter_transactions: {e}", exc_info=True)
-        await callback.answer("❌ 篩選失敗，請稍後再試", show_alert=True)
+        await callback.answer("❌ 筛选失败，请稍后再试", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("order_detail_"))
@@ -140,17 +182,17 @@ async def callback_order_detail(callback: CallbackQuery):
         transaction = TransactionService.get_transaction(order_id)
         
         if not transaction:
-            await callback.answer("❌ 訂單不存在", show_alert=True)
+            await callback.answer("❌ 订单不存在", show_alert=True)
             return
         
         if transaction['user_id'] != callback.from_user.id:
-            await callback.answer("❌ 無權限查看此訂單", show_alert=True)
+            await callback.answer("❌ 无权限查看此订单", show_alert=True)
             return
         
         status_map = {
             'pending': '⏳ 待支付',
             'paid': '✅ 支付成功',
-            'failed': '❌ 支付失敗',
+            'failed': '❌ 支付失败',
             'refunded': '↩️ 已退款',
             'cancelled': '🚫 已取消'
         }
@@ -162,27 +204,27 @@ async def callback_order_detail(callback: CallbackQuery):
         }
         
         channel_map = {
-            'alipay': '支付寶',
+            'alipay': '支付宝',
             'wechat': '微信'
         }
         
         text = (
-            f"*📋 訂單詳情*\n\n"
-            f"訂單號：`{transaction['order_id']}`\n"
-            f"狀態：{status_map.get(transaction['status'], transaction['status'])}\n"
-            f"類型：{type_map.get(transaction['transaction_type'], transaction['transaction_type'])}\n"
+            f"*📋 订单详情*\n\n"
+            f"订单号：`{transaction['order_id']}`\n"
+            f"状态：{status_map.get(transaction['status'], transaction['status'])}\n"
+            f"类型：{type_map.get(transaction['transaction_type'], transaction['transaction_type'])}\n"
             f"通道：{channel_map.get(transaction['payment_channel'], transaction['payment_channel'])}\n"
-            f"金額：¥{transaction['amount']:,.2f}\n"
-            f"手續費：¥{transaction['fee']:,.2f}\n"
-            f"實際{'到賬' if transaction['transaction_type'] == 'receive' else '支付'}：¥{transaction['actual_amount']:,.2f}\n"
-            f"創建時間：{transaction['created_at']}\n"
+            f"金额：¥{transaction['amount']:,.2f}\n"
+            f"手续费：¥{transaction['fee']:,.2f}\n"
+            f"实际{'到账' if transaction['transaction_type'] == 'receive' else '支付'}：¥{transaction['actual_amount']:,.2f}\n"
+            f"创建时间：{transaction['created_at']}\n"
         )
         
         if transaction.get('paid_at'):
-            text += f"支付時間：{transaction['paid_at']}\n"
+            text += f"支付时间：{transaction['paid_at']}\n"
         
         if transaction.get('description'):
-            text += f"\n備註：{transaction['description']}"
+            text += f"\n备注：{transaction['description']}"
         
         await callback.message.edit_text(
             text=text,
@@ -194,5 +236,5 @@ async def callback_order_detail(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_order_detail: {e}", exc_info=True)
-        await callback.answer("❌ 獲取訂單詳情失敗，請稍後再試", show_alert=True)
+        await callback.answer("❌ 获取订单详情失败，请稍后再试", show_alert=True)
 
