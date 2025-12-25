@@ -36,7 +36,43 @@ def add_to_history(user_id: int, role: str, content: str):
         _conversation_history[user_id] = _conversation_history[user_id][-10:]
 
 
-@router.message(~Command())
+@router.callback_query(F.data == "ai_chat")
+async def callback_ai_chat(callback: CallbackQuery):
+    """Handle AI chat button callback"""
+    try:
+        user_id = callback.from_user.id
+        is_admin = AdminRepository.is_admin(user_id)
+        
+        # Clear conversation history when starting new AI chat session
+        _conversation_history[user_id] = []
+        
+        text = (
+            "*🤖 AI 智能助手*\n\n"
+            "您好！我是伍拾支付的智能客服助手，有什么可以帮助您的吗？\n"
+            "您可以随时提问关于公司业务、产品功能、常见问题等。\n\n"
+            "输入 `/exit` 退出 AI 模式。"
+        )
+        
+        reply_markup = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="转人工客服", url=Config.SUPPORT_URL)],
+            [InlineKeyboardButton(text="🔙 返回主菜单", callback_data="main_menu")]
+        ])
+        
+        await callback.message.edit_text(
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=reply_markup
+        )
+        await callback.answer()
+        
+        logger.info(f"User {user_id} entered AI chat mode")
+        
+    except Exception as e:
+        logger.error(f"Error in callback_ai_chat: {e}", exc_info=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+
+
+@router.message(F.text)
 async def handle_ai_message(message: Message):
     """
     Handle user messages for AI chat.
@@ -53,12 +89,30 @@ async def handle_ai_message(message: Message):
         if not user_text:
             return  # Skip non-text messages
         
+        # Handle /exit command to exit AI mode
+        if user_text.lower() == '/exit':
+            # Clear conversation history
+            _conversation_history.pop(user_id, None)
+            is_admin = AdminRepository.is_admin(user_id)
+            await message.answer(
+                "*🤖 AI 模式已退出*\n\n"
+                "您已退出 AI 智能助手模式。如有其他需要，请随时点击按钮。",
+                parse_mode="MarkdownV2",
+                reply_markup=get_main_keyboard(user_id=user_id, is_admin=is_admin)
+            )
+            logger.info(f"User {user_id} exited AI chat mode")
+            return
+        
+        # Skip other commands (messages starting with '/')
+        if user_text.startswith('/'):
+            return
+        
         # Get AI service
         ai_service = get_ai_service()
         
         if not ai_service.is_available():
             await message.answer(
-                "抱歉，AI 服務暫時不可用。請點擊下方按鈕聯繫人工客服。",
+                "抱歉，AI 服务暂时不可用。请点击下方按钮联系人工客服。",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(
                         text="💬 聯繫客服",
@@ -88,7 +142,7 @@ async def handle_ai_message(message: Message):
         
         # Check if should show support button
         should_show_support = ai_service._should_escalate_to_human(ai_response) or \
-                              "聯繫客服" in ai_response or \
+                              "联系客服" in ai_response or \
                               "人工客服" in ai_response
         
         # Escape MarkdownV2
@@ -127,7 +181,7 @@ async def handle_ai_message(message: Message):
     except Exception as e:
         logger.error(f"Error in handle_ai_message: {e}", exc_info=True)
         await message.answer(
-            "抱歉，處理您的消息時遇到錯誤。請聯繫客服 @wushizhifu_jianglai",
+            "抱歉，处理您的消息时遇到错误。请联系客服 @wushizhifu_jianglai",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(
                     text="💬 聯繫客服",
