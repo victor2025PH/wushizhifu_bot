@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.exceptions import TelegramBadRequest
 from keyboards.main_kb import get_main_keyboard
 from database.admin_repository import AdminRepository
 from database.user_repository import UserRepository
@@ -303,6 +304,11 @@ async def callback_wallet_details(callback: CallbackQuery):
             if len(transactions) >= 10:
                 text += f"\n_显示最近 10 笔交易，查看全部记录请点击下方按钮_"
         
+        # Add update timestamp to ensure content changes on refresh
+        current_time = datetime.now().strftime('%m-%d %H:%M:%S')
+        time_stamp = escape_markdown_v2(f"最后更新：{current_time}")
+        text += f"\n\n{separator}\n{time_stamp}"
+        
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="📜 查看全部记录", callback_data="transactions"),
@@ -313,13 +319,23 @@ async def callback_wallet_details(callback: CallbackQuery):
             ]
         ])
         
-        await callback.message.edit_text(
-            text=text,
-            parse_mode="MarkdownV2",
-            reply_markup=keyboard
-        )
+        # Give feedback when refreshing
+        await callback.answer("🔄 刷新中...")
         
-        await callback.answer()
+        try:
+            await callback.message.edit_text(
+                text=text,
+                parse_mode="MarkdownV2",
+                reply_markup=keyboard
+            )
+        except TelegramBadRequest as e:
+            # Handle "message is not modified" error gracefully
+            if "message is not modified" in str(e).lower():
+                await callback.answer("✅ 数据已是最新", show_alert=False)
+                logger.debug(f"Message not modified (expected when content unchanged): {e}")
+            else:
+                # Re-raise other TelegramBadRequest errors
+                raise
         
     except Exception as e:
         logger.error(f"Error in callback_wallet_details: {e}", exc_info=True)
