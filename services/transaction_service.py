@@ -7,6 +7,7 @@ from datetime import datetime
 from database.transaction_repository import TransactionRepository
 from database.user_repository import UserRepository
 from database.rate_repository import RateRepository
+from database.db import db
 import logging
 
 logger = logging.getLogger(__name__)

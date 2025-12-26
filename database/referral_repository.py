@@ -108,8 +108,9 @@ class ReferralRepository:
     def update_referral_status(referred_id: int, status: str, transaction_amount: float = 0.0):
         """Update referral status when user completes first transaction"""
         try:
+            # Check if referral exists and not already rewarded
             cursor = db.execute("""
-                SELECT * FROM referrals WHERE referred_id = ? AND status != 'rewarded'
+                SELECT * FROM referrals WHERE referred_id = ? AND status NOT IN ('rewarded', 'first_transaction')
             """, (referred_id,))
             referral = cursor.fetchone()
             
