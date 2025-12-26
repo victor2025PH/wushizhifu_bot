@@ -7,7 +7,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardBut
 from keyboards.main_kb import get_main_keyboard
 from database.admin_repository import AdminRepository
 from database.user_repository import UserRepository
-from utils.text_utils import escape_markdown_v2
+from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -297,16 +297,27 @@ async def callback_settings_account(callback: CallbackQuery):
         else:
             username = "未设置"
         
+        user_id_str = escape_markdown_v2(str(user_id))
+        username_escaped = escape_markdown_v2(username)
+        first_name_escaped = escape_markdown_v2(user.get('first_name', ''))
+        last_name_escaped = escape_markdown_v2(user.get('last_name', '') or '')
+        full_name = f"{first_name_escaped} {last_name_escaped}".strip() if first_name_escaped else "未设置"
+        vip_level_str = format_number_markdown(user.get('vip_level', 0))
+        total_transactions_str = format_number_markdown(user.get('total_transactions', 0))
+        total_amount_str = format_amount_markdown(user.get('total_amount', 0))
+        created_at_escaped = escape_markdown_v2(str(user.get('created_at', 'N/A')))
+        last_active_escaped = escape_markdown_v2(str(user.get('last_active_at', 'N/A')))
+        
         text = (
             "*👤 账户信息*\n\n"
-            f"🆔 用户ID：`{user_id}`\n"
-            f"👤 用户名：{username}\n"
-            f"📛 姓名：{user.get('first_name', '')} {user.get('last_name', '') or ''}\n"
-            f"⭐ VIP等级：{user.get('vip_level', 0)}\n"
-            f"📊 总交易数：{user.get('total_transactions', 0)} 笔\n"
-            f"💰 累计金额：¥{user.get('total_amount', 0):,.2f}\n"
-            f"📅 注册时间：{user.get('created_at', 'N/A')}\n"
-            f"🕐 最后活跃：{user.get('last_active_at', 'N/A')}"
+            f"🆔 用户ID：`{user_id_str}`\n"
+            f"👤 用户名：{username_escaped}\n"
+            f"📛 姓名：{full_name}\n"
+            f"⭐ VIP等级：{vip_level_str}\n"
+            f"📊 总交易数：{total_transactions_str} 笔\n"
+            f"💰 累计金额：{total_amount_str}\n"
+            f"📅 注册时间：{created_at_escaped}\n"
+            f"🕐 最后活跃：{last_active_escaped}"
         )
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[

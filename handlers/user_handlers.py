@@ -133,7 +133,7 @@ async def callback_statistics(callback: CallbackQuery):
     try:
         from database.user_repository import UserRepository
         from database.transaction_repository import TransactionRepository
-        from utils.text_utils import escape_markdown_v2
+        from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown
         
         user_id = callback.from_user.id
         user = UserRepository.get_user(user_id)
@@ -143,18 +143,20 @@ async def callback_statistics(callback: CallbackQuery):
             total_receive = TransactionRepository.get_transaction_count(user_id, "receive")
             total_pay = TransactionRepository.get_transaction_count(user_id, "pay")
             
-            # Format amount - remove commas for MarkdownV2, or escape them
-            total_amount = user.get('total_amount', 0) or 0
-            amount_formatted = f"{total_amount:,.2f}".replace(',', '\\,')
+            total_amount_str = format_amount_markdown(user.get('total_amount', 0))
+            total_trans_str = format_number_markdown(total_trans)
+            total_receive_str = format_number_markdown(total_receive)
+            total_pay_str = format_number_markdown(total_pay)
+            vip_level_str = format_number_markdown(user.get('vip_level', 0))
             
             text = (
-                f"*📊 我的統計*\n\n"
-                f"總交易數：{total_trans}\n"
-                f"收款次數：{total_receive}\n"
-                f"付款次數：{total_pay}\n"
-                f"VIP 等級：{user.get('vip_level', 0)}\n"
-                f"累計交易額：¥{amount_formatted}\n\n"
-                "更多統計功能開發中\\.\\.\\."
+                f"*📊 我的统计*\n\n"
+                f"总交易数：{total_trans_str}\n"
+                f"收款次数：{total_receive_str}\n"
+                f"付款次数：{total_pay_str}\n"
+                f"VIP 等级：{vip_level_str}\n"
+                f"累计交易额：{total_amount_str}\n\n"
+                "更多统计功能开发中\\.\\.\\."
             )
         else:
             text = "*📊 我的統計*\n\n暫無數據"

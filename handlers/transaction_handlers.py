@@ -12,7 +12,7 @@ from keyboards.transaction_kb import (
 from keyboards.main_kb import get_main_keyboard
 from database.admin_repository import AdminRepository
 from services.transaction_service import TransactionService
-from utils.text_utils import escape_markdown_v2
+from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -42,12 +42,14 @@ async def callback_transactions(callback: CallbackQuery):
                 status_icon = "✅" if trans['status'] == 'paid' else "⏳" if trans['status'] == 'pending' else "❌"
                 type_text = "收款" if trans['transaction_type'] == 'receive' else "付款"
                 channel_text = "支付宝" if trans['payment_channel'] == 'alipay' else "微信"
+                amount_str = format_amount_markdown(trans['amount'])
+                order_id_escaped = escape_markdown_v2(trans['order_id'])
+                created_at_escaped = escape_markdown_v2(str(trans['created_at']))
                 
-                created_at = trans['created_at']
                 text += (
-                    f"{status_icon} {type_text} ¥{trans['amount']:,.2f} \\| "
-                    f"{channel_text} \\| {created_at}\n"
-                    f"  订单号：`{trans['order_id']}`\n\n"
+                    f"{status_icon} {type_text} {amount_str} \\| "
+                    f"{channel_text} \\| {created_at_escaped}\n"
+                    f"  订单号：`{order_id_escaped}`\n\n"
                 )
             
             if len(transactions) > 5:
@@ -140,10 +142,14 @@ async def callback_filter_transactions(callback: CallbackQuery):
                 if len(created_at) > 10:
                     created_at = created_at[:16]
                 
+                amount_str = format_amount_markdown(trans['amount'])
+                order_id_escaped = escape_markdown_v2(trans['order_id'])
+                created_at_escaped = escape_markdown_v2(str(created_at))
+                
                 text += (
-                    f"{status_icon} {type_text} ¥{trans['amount']:,.2f} \\| "
-                    f"{channel_text} \\| {created_at}\n"
-                    f"  订单号：`{trans['order_id']}`\n\n"
+                    f"{status_icon} {type_text} {amount_str} \\| "
+                    f"{channel_text} \\| {created_at_escaped}\n"
+                    f"  订单号：`{order_id_escaped}`\n\n"
                 )
             
             if len(transactions) > 10:
@@ -208,23 +214,32 @@ async def callback_order_detail(callback: CallbackQuery):
             'wechat': '微信'
         }
         
+        order_id_escaped = escape_markdown_v2(transaction['order_id'])
+        amount_str = format_amount_markdown(transaction['amount'])
+        fee_str = format_amount_markdown(transaction['fee'])
+        actual_str = format_amount_markdown(transaction['actual_amount'])
+        action_text = escape_markdown_v2('到账' if transaction['transaction_type'] == 'receive' else '支付')
+        created_at_escaped = escape_markdown_v2(str(transaction['created_at']))
+        
         text = (
             f"*📋 订单详情*\n\n"
-            f"订单号：`{transaction['order_id']}`\n"
+            f"订单号：`{order_id_escaped}`\n"
             f"状态：{status_map.get(transaction['status'], transaction['status'])}\n"
             f"类型：{type_map.get(transaction['transaction_type'], transaction['transaction_type'])}\n"
             f"通道：{channel_map.get(transaction['payment_channel'], transaction['payment_channel'])}\n"
-            f"金额：¥{transaction['amount']:,.2f}\n"
-            f"手续费：¥{transaction['fee']:,.2f}\n"
-            f"实际{'到账' if transaction['transaction_type'] == 'receive' else '支付'}：¥{transaction['actual_amount']:,.2f}\n"
-            f"创建时间：{transaction['created_at']}\n"
+            f"金额：{amount_str}\n"
+            f"手续费：{fee_str}\n"
+            f"实际{action_text}：{actual_str}\n"
+            f"创建时间：{created_at_escaped}\n"
         )
         
         if transaction.get('paid_at'):
-            text += f"支付时间：{transaction['paid_at']}\n"
+            paid_at_escaped = escape_markdown_v2(str(transaction['paid_at']))
+            text += f"支付时间：{paid_at_escaped}\n"
         
         if transaction.get('description'):
-            text += f"\n备注：{transaction['description']}"
+            desc_escaped = escape_markdown_v2(transaction['description'])
+            text += f"\n备注：{desc_escaped}"
         
         await callback.message.edit_text(
             text=text,

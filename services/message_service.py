@@ -2,7 +2,7 @@
 Message service for generating professional messages
 """
 from datetime import datetime
-from utils.text_utils import escape_markdown_v2, get_user_display_name
+from utils.text_utils import escape_markdown_v2, format_separator, get_user_display_name
 from services.user_service import UserService
 
 

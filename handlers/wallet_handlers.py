@@ -11,7 +11,7 @@ from database.user_repository import UserRepository
 from database.transaction_repository import TransactionRepository
 from services.transaction_service import TransactionService
 from database.db import db
-from utils.text_utils import escape_markdown_v2
+from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown, format_separator
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -60,18 +60,25 @@ async def callback_wallet(callback: CallbackQuery):
         today_pay = sum(float(t['actual_amount']) for t in today_transactions 
                        if t['transaction_type'] == 'pay')
         
+        balance_str = format_number_markdown(balance, 2)
+        today_receive_str = format_amount_markdown(today_receive)
+        today_pay_str = format_number_markdown(today_pay, 2)
+        total_transactions = format_number_markdown(user.get('total_transactions', 0))
+        total_amount_str = format_amount_markdown(user.get('total_amount', 0))
+        separator = format_separator(30)
+        
         text = (
             "*💰 我的钱包*\n\n"
-            f"总余额：`{balance:,.2f}` USDT\n"
-            f"可用余额：`{balance:,.2f}` USDT\n"
-            f"冻结余额：`0.00` USDT\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"总余额：`{balance_str}` USDT\n"
+            f"可用余额：`{balance_str}` USDT\n"
+            f"冻结余额：`0\\.00` USDT\n\n"
+            f"{separator}\n"
             "*今日统计*\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💳 充值：¥{today_receive:,.2f}\n"
-            f"📤 提现：`{today_pay:,.2f}` USDT\n\n"
-            f"📊 累计交易：{user.get('total_transactions', 0)} 笔\n"
-            f"💰 累计金额：¥{user.get('total_amount', 0):,.2f}"
+            f"{separator}\n"
+            f"💳 充值：{today_receive_str}\n"
+            f"📤 提现：`{today_pay_str}` USDT\n\n"
+            f"📊 累计交易：{total_transactions} 笔\n"
+            f"💰 累计金额：{total_amount_str}"
         )
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -153,16 +160,18 @@ async def callback_wallet_withdraw(callback: CallbackQuery):
         balance -= sum(float(t['actual_amount']) for t in transactions 
                       if t['transaction_type'] == 'pay')
         
+        balance_str = format_number_markdown(balance, 2)
+        
         if balance <= 0:
             text = (
                 "*📤 提现*\n\n"
                 "❌ 余额不足，无法提现\n\n"
-                f"当前余额：`{balance:,.2f}` USDT"
+                f"当前余额：`{balance_str}` USDT"
             )
         else:
             text = (
                 "*📤 提现*\n\n"
-                f"当前可用余额：`{balance:,.2f}` USDT\n\n"
+                f"当前可用余额：`{balance_str}` USDT\n\n"
                 "请输入提现金额（USDT）：\n"
                 "最小提现金额：10 USDT\n"
                 "最大提现金额：无限制"
@@ -204,9 +213,13 @@ async def callback_wallet_details(callback: CallbackQuery):
                 type_icon = "💳" if trans['transaction_type'] == 'receive' else "📤"
                 amount_sign = "+" if trans['transaction_type'] == 'receive' else "-"
                 
+                amount_str = format_amount_markdown(trans['actual_amount'])
+                order_id_short = escape_markdown_v2(trans['order_id'][:16] + "...")
+                created_at_escaped = escape_markdown_v2(str(trans['created_at']))
+                
                 text += (
-                    f"{status_icon} {type_icon} {amount_sign}¥{trans['actual_amount']:,.2f}\n"
-                    f"   {trans['created_at']} | `{trans['order_id'][:16]}...`\n\n"
+                    f"{status_icon} {type_icon} {amount_sign}{amount_str}\n"
+                    f"   {created_at_escaped} \\| `{order_id_short}`\n\n"
                 )
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[

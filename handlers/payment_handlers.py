@@ -11,7 +11,7 @@ from keyboards.payment_kb import (
 from keyboards.main_kb import get_main_keyboard
 from services.transaction_service import TransactionService
 from services.calculator_service import CalculatorService
-from utils.text_utils import escape_markdown_v2
+from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_percentage_markdown
 from database.user_repository import UserRepository
 
 router = Router()
@@ -55,7 +55,7 @@ async def callback_pay_wechat(callback: CallbackQuery):
         
         text = (
             "*🍀 微信支付通道*\n\n"
-            "请选择支付類型："
+            "请选择支付类型："
         )
         
         await callback.message.edit_text(
@@ -151,15 +151,20 @@ async def process_amount(callback: CallbackQuery, amount: float):
     
     type_text = "收款" if transaction_type == "receive" else "付款"
     channel_text = "支付宝" if channel == "alipay" else "微信"
+    amount_str = format_amount_markdown(amount)
+    rate_str = format_percentage_markdown(calc_result['rate_percentage'])
+    fee_str = format_amount_markdown(calc_result['fee'])
+    actual_str = format_amount_markdown(calc_result['actual_amount'])
+    action_text = escape_markdown_v2('到账' if transaction_type == 'receive' else '支付')
     
     text = (
         f"*📊 订单详情*\n\n"
-        f"類型：{type_text}\n"
+        f"类型：{type_text}\n"
         f"通道：{channel_text}\n"
-        f"交易金额：¥{amount:,.2f}\n"
-        f"费率：{calc_result['rate_percentage']:.2f}%\n"
-        f"手续费：¥{calc_result['fee']:,.2f}\n"
-        f"实际{'到账' if transaction_type == 'receive' else '支付'}：¥{calc_result['actual_amount']:,.2f}\n\n"
+        f"交易金额：{amount_str}\n"
+        f"费率：{rate_str}\n"
+        f"手续费：{fee_str}\n"
+        f"实际{action_text}：{actual_str}\n\n"
         "请确认是否创建订单："
     )
     
@@ -204,15 +209,20 @@ async def callback_confirm_order(callback: CallbackQuery):
         
         type_text = "收款" if transaction_type == "receive" else "付款"
         channel_text = "支付宝" if channel == "alipay" else "微信"
+        amount_str = format_amount_markdown(amount)
+        fee_str = format_amount_markdown(calc_result['fee'])
+        actual_str = format_amount_markdown(calc_result['actual_amount'])
+        action_text = escape_markdown_v2('到账' if transaction_type == 'receive' else '支付')
+        order_id_escaped = escape_markdown_v2(order_id)
         
         text = (
             f"*✅ 订单已创建*\n\n"
-            f"订单號：`{order_id}`\n"
-            f"類型：{type_text}\n"
+            f"订单号：`{order_id_escaped}`\n"
+            f"类型：{type_text}\n"
             f"通道：{channel_text}\n"
-            f"金额：¥{amount:,.2f}\n"
-            f"手续费：¥{calc_result['fee']:,.2f}\n"
-            f"实际{'到账' if transaction_type == 'receive' else '支付'}：¥{calc_result['actual_amount']:,.2f}\n"
+            f"金额：{amount_str}\n"
+            f"手续费：{fee_str}\n"
+            f"实际{action_text}：{actual_str}\n"
             f"状态：待支付\n\n"
             "⚠️ 支付功能开发中，此为演示订单"
         )

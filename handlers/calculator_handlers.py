@@ -11,7 +11,7 @@ from keyboards.calculator_kb import (
 from keyboards.main_kb import get_main_keyboard
 from services.calculator_service import CalculatorService
 from database.user_repository import UserRepository
-from utils.text_utils import escape_markdown_v2
+from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_percentage_markdown, format_number_markdown
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ async def callback_calculator(callback: CallbackQuery):
     try:
         text = (
             "*🧮 伍拾支付计算器*\n\n"
-            "请选择计算類型："
+            "请选择计算类型："
         )
         
         await callback.message.edit_text(
@@ -114,9 +114,10 @@ async def callback_calc_exchange(callback: CallbackQuery):
         # Get current exchange rate (default 7.42)
         exchange_rate = 7.42  # Can be fetched from database or API
         
+        rate_str = escape_markdown_v2(f"1 USDT = {exchange_rate} CNY")
         text = (
             "*💱 汇率转换器*\n\n"
-            f"当前汇率：1 USDT = {exchange_rate} CNY\n"
+            f"当前汇率：{rate_str}\n"
             "（实时更新）\n\n"
             "请选择转换方向："
         )
@@ -149,19 +150,22 @@ async def callback_exchange_direction(callback: CallbackQuery):
         _calc_states[user_id]["exchange_direction"] = direction
         
         exchange_rate = 7.42  # Default rate
+        rate_str = escape_markdown_v2(f"1 USDT = {exchange_rate} CNY")
         
         if direction == "usdt_cny":
             text = (
                 f"*💱 汇率转换：USDT → CNY*\n\n"
-                f"当前汇率：1 USDT = {exchange_rate} CNY\n\n"
+                f"当前汇率：{rate_str}\n\n"
                 "请输入 USDT 金额：\n"
                 "格式：数字（如：100\\.5）"
             )
         else:  # cny_usdt
+            cny_rate = 1/exchange_rate
+            cny_rate_str = format_number_markdown(cny_rate, 4)
             text = (
                 f"*💱 汇率转换：CNY → USDT*\n\n"
-                f"当前汇率：1 USDT = {exchange_rate} CNY\n"
-                f"即：1 CNY = {1/exchange_rate:.4f} USDT\n\n"
+                f"当前汇率：{rate_str}\n"
+                f"即：1 CNY = {cny_rate_str} USDT\n\n"
                 "请输入 CNY 金额：\n"
                 "格式：数字（如：1000\\.50）"
             )
@@ -210,16 +214,21 @@ async def handle_calculator_amount(message: Message):
                 # Calculate
                 calc_result = CalculatorService.calculate_fee(amount, channel, vip_level)
                 
-                channel_text = "支付寶" if channel == "alipay" else "微信"
+                channel_text = "支付宝" if channel == "alipay" else "微信"
+                amount_str = format_amount_markdown(amount)
+                rate_str = format_percentage_markdown(calc_result['rate_percentage'])
+                fee_str = format_amount_markdown(calc_result['fee'])
+                actual_str = format_amount_markdown(calc_result['actual_amount'])
+                vip_level_str = format_number_markdown(vip_level)
                 
                 text = (
-                    f"*📊 计算結果*\n\n"
-                    f"交易金额：¥{amount:,.2f}\n"
+                    f"*📊 计算结果*\n\n"
+                    f"交易金额：{amount_str}\n"
                     f"支付通道：{channel_text}\n"
-                    f"VIP 等級：{vip_level}\n"
-                    f"费率：{calc_result['rate_percentage']:.2f}%\n\n"
-                    f"手續費：¥{calc_result['fee']:,.2f}\n"
-                    f"實際到賬：¥{calc_result['actual_amount']:,.2f}"
+                    f"VIP 等级：{vip_level_str}\n"
+                    f"费率：{rate_str}\n\n"
+                    f"手续费：{fee_str}\n"
+                    f"实际到账：{actual_str}"
                 )
                 
                 await message.answer(
@@ -238,19 +247,27 @@ async def handle_calculator_amount(message: Message):
                 
                 if direction == "usdt_cny":
                     result = CalculatorService.convert_currency(amount, "USDT", "CNY", exchange_rate)
+                    amount_str = format_number_markdown(amount, 2) + " USDT"
+                    rate_str = escape_markdown_v2(f"1 USDT = {exchange_rate} CNY")
+                    converted_str = format_amount_markdown(result['converted_amount']) + " CNY"
+                    
                     text = (
                         f"*💱 转换结果*\n\n"
-                        f"输入金额：{amount} USDT\n"
-                        f"汇率：1 USDT = {exchange_rate} CNY\n\n"
-                        f"转换金额：¥{result['converted_amount']:,.2f} CNY"
+                        f"输入金额：{amount_str}\n"
+                        f"汇率：{rate_str}\n\n"
+                        f"转换金额：{converted_str}"
                     )
                 else:  # cny_usdt
                     result = CalculatorService.convert_currency(amount, "CNY", "USDT", exchange_rate)
+                    amount_str = format_amount_markdown(amount) + " CNY"
+                    rate_str = escape_markdown_v2(f"1 USDT = {exchange_rate} CNY")
+                    converted_str = format_number_markdown(result['converted_amount'], 4) + " USDT"
+                    
                     text = (
                         f"*💱 转换结果*\n\n"
-                        f"输入金额：¥{amount:,.2f} CNY\n"
-                        f"汇率：1 USDT = {exchange_rate} CNY\n\n"
-                        f"转换金额：{result['converted_amount']:,.4f} USDT"
+                        f"输入金额：{amount_str}\n"
+                        f"汇率：{rate_str}\n\n"
+                        f"转换金额：{converted_str}"
                     )
                 
                 await message.answer(

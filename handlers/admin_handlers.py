@@ -10,6 +10,8 @@ from database.admin_repository import AdminRepository
 from database.user_repository import UserRepository
 from database.sensitive_words_repository import SensitiveWordsRepository
 from database.group_repository import GroupRepository
+from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown
+from database.db import db
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -81,17 +83,22 @@ async def handle_admin_users(callback: CallbackQuery):
     """Handle admin users management"""
     from database.db import db
     
+    from utils.text_utils import format_number_markdown
+    
     cursor = db.execute("SELECT COUNT(*) FROM users")
     total_users = cursor.fetchone()[0]
     
     cursor = db.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
     active_users = cursor.fetchone()[0]
     
+    total_users_str = format_number_markdown(total_users)
+    active_users_str = format_number_markdown(active_users)
+    
     text = (
-        f"*👥 用戶管理*\n\n"
-        f"總用戶數：{total_users}\n"
-        f"活躍用戶：{active_users}\n\n"
-        "功能開發中..."
+        f"*👥 用户管理*\n\n"
+        f"总用户数：{total_users_str}\n"
+        f"活跃用户：{active_users_str}\n\n"
+        "功能开发中\\.\\.\\."
     )
     
     await callback.message.edit_text(
@@ -116,12 +123,16 @@ async def handle_admin_stats(callback: CallbackQuery):
     cursor = db.execute("SELECT SUM(amount) FROM transactions WHERE status = 'paid'")
     total_amount = cursor.fetchone()[0] or 0
     
+    total_transactions_str = format_number_markdown(total_transactions)
+    paid_transactions_str = format_number_markdown(paid_transactions)
+    total_amount_str = format_amount_markdown(total_amount)
+    
     text = (
-        f"*📊 系統統計*\n\n"
-        f"總交易數：{total_transactions}\n"
-        f"成功交易：{paid_transactions}\n"
-        f"總交易金額：¥{total_amount:,.2f}\n\n"
-        "更多統計功能開發中..."
+        f"*📊 系统统计*\n\n"
+        f"总交易数：{total_transactions_str}\n"
+        f"成功交易：{paid_transactions_str}\n"
+        f"总交易金额：{total_amount_str}\n\n"
+        "更多统计功能开发中\\.\\.\\."
     )
     
     await callback.message.edit_text(
