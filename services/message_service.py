@@ -301,8 +301,8 @@ class MessageService:
                     logger.warning(f"Error editing during title typing: {e}")
                 await asyncio.sleep(char_delay)
             
-            # Add newlines
-            typed_text += "\n\n"
+            # Add newlines (each newline counts as a character)
+            typed_text += "\n"
             escaped_text = escape_markdown_v2(f"{typed_text}_")
             try:
                 await current_msg.edit_text(
@@ -311,7 +311,18 @@ class MessageService:
                 )
             except:
                 pass
-            await asyncio.sleep(char_delay * 2)
+            await asyncio.sleep(char_delay)
+            
+            typed_text += "\n"
+            escaped_text = escape_markdown_v2(f"{typed_text}_")
+            try:
+                await current_msg.edit_text(
+                    text=escaped_text,
+                    parse_mode="MarkdownV2"
+                )
+            except:
+                pass
+            await asyncio.sleep(char_delay)
             
             # Type out intro line
             for char in intro_part:
@@ -326,8 +337,8 @@ class MessageService:
                     pass
                 await asyncio.sleep(char_delay)
             
-            # Add newlines
-            typed_text += "\n\n"
+            # Add newlines (each newline counts as a character)
+            typed_text += "\n"
             escaped_text = escape_markdown_v2(f"{typed_text}_")
             try:
                 await current_msg.edit_text(
@@ -336,7 +347,18 @@ class MessageService:
                 )
             except:
                 pass
-            await asyncio.sleep(char_delay * 2)
+            await asyncio.sleep(char_delay)
+            
+            typed_text += "\n"
+            escaped_text = escape_markdown_v2(f"{typed_text}_")
+            try:
+                await current_msg.edit_text(
+                    text=escaped_text,
+                    parse_mode="MarkdownV2"
+                )
+            except:
+                pass
+            await asyncio.sleep(char_delay)
             
             # Type out each service line
             for service_line in services:
