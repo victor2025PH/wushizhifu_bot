@@ -10,6 +10,7 @@ from database.admin_repository import AdminRepository
 from database.user_repository import UserRepository
 from database.sensitive_words_repository import SensitiveWordsRepository
 from database.group_repository import GroupRepository
+from database.verification_repository import VerificationRepository
 from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown, format_percentage_markdown, format_separator
 from database.db import db
 
@@ -141,6 +142,14 @@ async def callback_admin_menu(callback: CallbackQuery):
             await handle_admin_verify(callback)
         elif action == "group":
             await handle_admin_group(callback)
+        elif action == "group_add":
+            await handle_admin_group_add(callback)
+        elif action == "group_list":
+            await handle_admin_group_list(callback)
+        elif action == "verify_all_approve":
+            await handle_admin_verify_all_approve(callback)
+        elif action == "verify_all_reject":
+            await handle_admin_verify_all_reject(callback)
         elif action == "add":
             await handle_admin_add(callback)
         
@@ -1110,6 +1119,243 @@ async def handle_admin_stats_detail(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error in handle_admin_stats_detail: {e}", exc_info=True)
         await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+
+
+async def handle_admin_group_add(callback: CallbackQuery):
+    """Handle add group functionality"""
+    try:
+        from utils.text_utils import format_separator
+        
+        separator = format_separator(30)
+        text = (
+            f"{separator}\n"
+            f"  *➕ 添加群组*\n"
+            f"{separator}\n\n"
+            f"*添加方式：*\n"
+            f"请使用命令添加群组：\n\n"
+            f"`/addgroup <group_id> [group_title]`\n\n"
+            f"*示例：*\n"
+            f"`/addgroup -1001234567890 测试群组`\n\n"
+            f"{separator}\n"
+            f"*注意事项：*\n"
+            f"• 群组ID必须以 `-100` 开头（超级群组）\n"
+            f"• 机器人必须是该群组的管理员\n"
+            f"• 添加后可以配置审核规则和设置\n\n"
+            f"*如何获取群组ID：*\n"
+            f"1\\. 将机器人添加到群组\n"
+            f"2\\. 赋予管理员权限\n"
+            f"3\\. 发送任意消息\n"
+            f"4\\. 机器人会自动获取群组ID\n\n"
+            f"💡 添加后可在群组设置中配置审核规则"
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔙 返回群组设置", callback_data="admin_group")
+            ]
+        ])
+        
+        await callback.message.edit_text(
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=keyboard
+        )
+        await callback.answer()
+        
+    except Exception as e:
+        logger.error(f"Error in handle_admin_group_add: {e}", exc_info=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+
+
+async def handle_admin_group_list(callback: CallbackQuery):
+    """Handle group list functionality"""
+    try:
+        from database.db import db
+        from utils.text_utils import format_separator
+        
+        # Get all groups with statistics
+        cursor = db.execute("""
+            SELECT g.*, 
+                   COUNT(DISTINCT gm.user_id) as member_count,
+                   COUNT(DISTINCT CASE WHEN gm.status = 'pending' THEN gm.user_id END) as pending_count,
+                   COUNT(DISTINCT CASE WHEN gm.status = 'verified' THEN gm.user_id END) as verified_count
+            FROM groups g
+            LEFT JOIN group_members gm ON g.group_id = gm.group_id
+            GROUP BY g.group_id
+            ORDER BY g.created_at DESC
+            LIMIT 20
+        """)
+        
+        groups = cursor.fetchall()
+        
+        separator = format_separator(30)
+        groups_count_str = format_number_markdown(len(groups))
+        
+        text = (
+            f"{separator}\n"
+            f"  *📋 群组列表*\n"
+            f"{separator}\n\n"
+            f"*已管理群组 \\(共 {groups_count_str} 个\\)：*\n\n"
+        )
+        
+        if not groups:
+            text += "暂无管理的群组\n\n请先添加群组到管理系统"
+        else:
+            for idx, group in enumerate(groups[:20], 1):
+                group_id = group['group_id']
+                group_title = group['group_title'] if group['group_title'] else f"群组 {group_id}"
+                verification_enabled = group['verification_enabled'] if group['verification_enabled'] is not None else 0
+                member_count = group['member_count'] if group['member_count'] is not None else 0
+                pending_count = group['pending_count'] if group['pending_count'] is not None else 0
+                verified_count = group['verified_count'] if group['verified_count'] is not None else 0
+                
+                group_title_escaped = escape_markdown_v2(str(group_title))
+                group_id_str = escape_markdown_v2(str(group_id))
+                verification_text = "已开启" if verification_enabled else "已关闭"
+                member_count_str = format_number_markdown(member_count)
+                pending_count_str = format_number_markdown(pending_count)
+                verified_count_str = format_number_markdown(verified_count)
+                
+                text += (
+                    f"{format_number_markdown(idx)}\\. {group_title_escaped}\n"
+                    f"   ID：`{group_id_str}`\n"
+                    f"   审核：{escape_markdown_v2(verification_text)} \\| "
+                    f"成员：{member_count_str} \\| "
+                    f"已审核：{verified_count_str} \\| "
+                    f"待审核：{pending_count_str}\n\n"
+                )
+            
+            if len(groups) >= 20:
+                text += f"显示前 20 个群组\\.\\.\\.\n\n"
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔙 返回群组设置", callback_data="admin_group")
+            ]
+        ])
+        
+        await callback.message.edit_text(
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=keyboard
+        )
+        await callback.answer()
+        
+    except Exception as e:
+        logger.error(f"Error in handle_admin_group_list: {e}", exc_info=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+
+
+async def handle_admin_verify_all_approve(callback: CallbackQuery):
+    """Handle approve all pending members"""
+    try:
+        from database.group_repository import GroupRepository
+        
+        count = GroupRepository.verify_all_pending_members()
+        count_str = format_number_markdown(count)
+        
+        await callback.answer(f"✅ 已通过 {count_str} 位待审核成员", show_alert=True)
+        
+        # Refresh the verify page
+        await handle_admin_verify(callback)
+        
+    except Exception as e:
+        logger.error(f"Error in handle_admin_verify_all_approve: {e}", exc_info=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+
+
+async def handle_admin_verify_all_reject(callback: CallbackQuery):
+    """Handle reject all pending members"""
+    try:
+        from database.group_repository import GroupRepository
+        
+        count = GroupRepository.reject_all_pending_members()
+        count_str = format_number_markdown(count)
+        
+        await callback.answer(f"❌ 已拒绝 {count_str} 位待审核成员", show_alert=True)
+        
+        # Refresh the verify page
+        await handle_admin_verify(callback)
+        
+    except Exception as e:
+        logger.error(f"Error in handle_admin_verify_all_reject: {e}", exc_info=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+
+
+@router.message(Command("addgroup"))
+async def cmd_add_group(message: Message):
+    """Add group command"""
+    try:
+        if not is_admin(message.from_user.id):
+            await message.answer("❌ 您不是管理员，无权限执行此操作")
+            return
+        
+        args = message.text.split(maxsplit=2)
+        if len(args) < 2:
+            await message.answer(
+                "❌ 请提供群组ID\n"
+                "格式：`/addgroup <group_id> [group_title]`\n\n"
+                "示例：`/addgroup -1001234567890 测试群组`",
+                parse_mode="MarkdownV2"
+            )
+            return
+        
+        try:
+            group_id = int(args[1])
+            group_title = args[2] if len(args) > 2 else None
+            
+            # Validate group ID format (should start with -100 for supergroups)
+            if group_id > 0:
+                await message.answer("❌ 群组ID格式错误，超级群组ID应以 -100 开头")
+                return
+            
+            # Try to get group info from bot
+            try:
+                bot = message.bot
+                chat = await bot.get_chat(group_id)
+                if not group_title:
+                    group_title = chat.title
+                
+                # Check if bot is admin in the group
+                bot_member = await bot.get_chat_member(group_id, (await bot.get_me()).id)
+                if bot_member.status not in ['administrator', 'creator']:
+                    await message.answer("❌ 机器人不是该群组的管理员，无法添加")
+                    return
+                
+            except Exception as e:
+                logger.warning(f"Could not verify group info: {e}")
+                # Continue anyway, might be a permission issue
+            
+            # Add group to database
+            group = GroupRepository.create_or_update_group(
+                group_id=group_id,
+                group_title=group_title,
+                verification_enabled=False,
+                verification_type='none'
+            )
+            
+            # Create default verification config
+            VerificationRepository.create_or_update_config(group_id)
+            
+            group_id_str = escape_markdown_v2(str(group_id))
+            group_title_escaped = escape_markdown_v2(group_title or '未命名群组')
+            
+            await message.answer(
+                f"✅ 已成功添加群组：{group_title_escaped}\n"
+                f"群组ID：`{group_id_str}`\n\n"
+                f"请在群组设置中配置审核规则",
+                parse_mode="MarkdownV2"
+            )
+            logger.info(f"Admin {message.from_user.id} added group {group_id}")
+            
+        except ValueError:
+            await message.answer("❌ 无效的群组ID，请输入数字")
+        except Exception as e:
+            logger.error(f"Error adding group: {e}", exc_info=True)
+            await message.answer("❌ 添加失败，请检查群组ID和机器人权限")
+            
+    except Exception as e:
+        logger.error(f"Error in cmd_add_group: {e}", exc_info=True)
 
 
 @router.callback_query(F.data == "main_menu")

@@ -129,4 +129,94 @@ class GroupRepository:
             WHERE group_id = ?
         """, (int(enabled), now, group_id))
         db.commit()
+    
+    @staticmethod
+    def reject_member(group_id: int, user_id: int) -> bool:
+        """Reject group member"""
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        cursor = db.execute("""
+            UPDATE group_members 
+            SET status = 'rejected', verified_at = ?
+            WHERE group_id = ? AND user_id = ?
+        """, (now, group_id, user_id))
+        db.commit()
+        return cursor.rowcount > 0
+    
+    @staticmethod
+    def get_all_groups(limit: int = 100) -> List[dict]:
+        """Get all groups"""
+        cursor = db.execute("""
+            SELECT * FROM groups 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        """, (limit,))
+        groups = cursor.fetchall()
+        return [dict(g) for g in groups]
+    
+    @staticmethod
+    def delete_group(group_id: int) -> bool:
+        """Delete a group"""
+        conn = db.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("DELETE FROM groups WHERE group_id = ?", (group_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Error deleting group: {e}")
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+    
+    @staticmethod
+    def get_all_pending_members() -> List[dict]:
+        """Get all pending members across all groups"""
+        cursor = db.execute("""
+            SELECT gm.*, g.group_title 
+            FROM group_members gm
+            JOIN groups g ON gm.group_id = g.group_id
+            WHERE gm.status = 'pending'
+            ORDER BY gm.joined_at ASC
+        """)
+        members = cursor.fetchall()
+        return [dict(m) for m in members]
+    
+    @staticmethod
+    def verify_all_pending_members(group_id: Optional[int] = None) -> int:
+        """Verify all pending members (optionally for a specific group)"""
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        if group_id:
+            cursor = db.execute("""
+                UPDATE group_members 
+                SET status = 'verified', verified_at = ?
+                WHERE group_id = ? AND status = 'pending'
+            """, (now, group_id))
+        else:
+            cursor = db.execute("""
+                UPDATE group_members 
+                SET status = 'verified', verified_at = ?
+                WHERE status = 'pending'
+            """, (now,))
+        db.commit()
+        return cursor.rowcount
+    
+    @staticmethod
+    def reject_all_pending_members(group_id: Optional[int] = None) -> int:
+        """Reject all pending members (optionally for a specific group)"""
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        if group_id:
+            cursor = db.execute("""
+                UPDATE group_members 
+                SET status = 'rejected', verified_at = ?
+                WHERE group_id = ? AND status = 'pending'
+            """, (now, group_id))
+        else:
+            cursor = db.execute("""
+                UPDATE group_members 
+                SET status = 'rejected', verified_at = ?
+                WHERE status = 'pending'
+            """, (now,))
+        db.commit()
+        return cursor.rowcount
 
