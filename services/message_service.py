@@ -242,74 +242,87 @@ class MessageService:
         return panel_text
     
     @staticmethod
-    async def generate_service_highlights_typing(bot_or_message, user_display_name: str = None):
+    async def generate_service_highlights_typing(message_obj, user_display_name: str = None):
         """
         Generate service highlights with typing effect (Step 4)
         Types out "伍拾支付企业级自动化结算中心" character by character
         
         Args:
-            bot_or_message: Can be either a Message object or Bot object for sending messages
+            message_obj: Message object for sending messages
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         title_text = "💎 "
         title_chars = "伍拾支付企业级自动化结算中心"
         
-        # Determine if it's a Message or Bot
-        if hasattr(bot_or_message, 'answer'):
-            # It's a Message object
-            send_method = bot_or_message.answer
-            edit_method = None
-            current_msg = None
-        else:
-            # It's a Bot object - we'll need chat_id
-            raise ValueError("generate_service_highlights_typing requires a Message object")
-        
-        # Send initial message with just the icon
-        current_msg = await send_method(
-            text=f"{title_text}_",
-            parse_mode="MarkdownV2"
-        )
-        
-        # Type out each character with 0.5 second delay
-        for i, char in enumerate(title_chars):
-            typed_so_far = title_text + title_chars[:i+1]
+        try:
+            # Send initial message with just the icon
+            current_msg = await message_obj.answer(
+                text=f"{title_text}_",
+                parse_mode="MarkdownV2"
+            )
+            
+            # Type out each character with 0.5 second delay
+            for i, char in enumerate(title_chars):
+                typed_so_far = title_text + title_chars[:i+1]
+                try:
+                    await current_msg.edit_text(
+                        text=f"{escape_markdown_v2(typed_so_far)}_",
+                        parse_mode="MarkdownV2"
+                    )
+                except Exception as e:
+                    logger.warning(f"Error editing message during typing: {e}")
+                    # If edit fails, send new message
+                    try:
+                        await current_msg.delete()
+                    except:
+                        pass
+                    current_msg = await message_obj.answer(
+                        text=f"{escape_markdown_v2(typed_so_far)}_",
+                        parse_mode="MarkdownV2"
+                    )
+                await asyncio.sleep(0.5)
+            
+            # Final message with complete title and service list
+            final_text = (
+                f"{title_text}*{escape_markdown_v2(title_chars)}*\n\n"
+                "✨ *我们为您提供：*\n\n"
+                "🕐 *7×24小时* 不间断服务\n"
+                "🏢 *企业级* 代收代付解决方案\n"
+                "🏦 *银行级* 资金安全保障\n"
+                "⚡ *毫秒级* 交易处理速度"
+            )
+            
             try:
                 await current_msg.edit_text(
-                    text=f"{escape_markdown_v2(typed_so_far)}_",
+                    text=final_text,
                     parse_mode="MarkdownV2"
                 )
-            except Exception:
-                # If edit fails, send new message
+            except Exception as e:
+                logger.warning(f"Error editing final message: {e}")
                 try:
                     await current_msg.delete()
                 except:
                     pass
-                current_msg = await send_method(
-                    text=f"{escape_markdown_v2(typed_so_far)}_",
+                # Always send final message even if edit fails
+                await message_obj.answer(
+                    text=final_text,
                     parse_mode="MarkdownV2"
                 )
-            await asyncio.sleep(0.5)
-        
-        # Final message with complete title and service list
-        final_text = (
-            f"{title_text}*{escape_markdown_v2(title_chars)}*\n\n"
-            "✨ *我们为您提供：*\n\n"
-            "🕐 *7×24小时* 不间断服务\n"
-            "🏢 *企业级* 代收代付解决方案\n"
-            "🏦 *银行级* 资金安全保障\n"
-            "⚡ *毫秒级* 交易处理速度"
-        )
-        
-        try:
-            await current_msg.edit_text(
-                text=final_text,
-                parse_mode="MarkdownV2"
+                
+        except Exception as e:
+            logger.error(f"Error in generate_service_highlights_typing: {e}", exc_info=True)
+            # Fallback: send simple version without typing effect
+            final_text = (
+                f"{title_text}*{escape_markdown_v2(title_chars)}*\n\n"
+                "✨ *我们为您提供：*\n\n"
+                "🕐 *7×24小时* 不间断服务\n"
+                "🏢 *企业级* 代收代付解决方案\n"
+                "🏦 *银行级* 资金安全保障\n"
+                "⚡ *毫秒级* 交易处理速度"
             )
-        except Exception:
-            try:
-                await current_msg.delete()
-            except:
-                pass
-            await send_method(
+            await message_obj.answer(
                 text=final_text,
                 parse_mode="MarkdownV2"
             )

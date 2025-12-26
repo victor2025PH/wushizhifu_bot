@@ -112,11 +112,27 @@ async def cmd_start(message: Message):
             from utils.text_utils import get_user_display_name
             user_display_name = get_user_display_name(user)
             # Generate typing effect message
-            typing_message = await MessageService.generate_service_highlights_typing(
+            await MessageService.generate_service_highlights_typing(
                 message, user_display_name
             )
         except Exception as e:
             logger.error(f"Error sending highlights: {e}", exc_info=True)
+            # Fallback: send simple version
+            try:
+                fallback_text = (
+                    "💎 *伍拾支付企业级自动化结算中心*\n\n"
+                    "✨ *我们为您提供：*\n\n"
+                    "🕐 *7×24小时* 不间断服务\n"
+                    "🏢 *企业级* 代收代付解决方案\n"
+                    "🏦 *银行级* 资金安全保障\n"
+                    "⚡ *毫秒级* 交易处理速度"
+                )
+                await message.answer(
+                    text=fallback_text,
+                    parse_mode="MarkdownV2"
+                )
+            except Exception as fallback_error:
+                logger.error(f"Error sending fallback highlights: {fallback_error}", exc_info=True)
         
         await asyncio.sleep(1.0)
         
