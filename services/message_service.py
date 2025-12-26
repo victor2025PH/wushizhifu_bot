@@ -263,15 +263,20 @@ class MessageService:
             "⚡ 毫秒级 交易处理速度"
         ]
         
-        # Calculate total characters (approximate, excluding emojis)
-        total_chars = len(title_part) + 2 + len(intro_part) + 2  # +2 for \n\n
+        # Calculate total characters (all characters including spaces and newlines)
+        # Count all characters that will be typed out
+        total_chars = len(title_part)
+        total_chars += 2  # \n\n after title
+        total_chars += len(intro_part)
+        total_chars += 2  # \n\n after intro
         for service in services:
-            total_chars += len(service) + 1  # +1 for \n
-        total_chars -= 5  # Subtract emoji count (they render as single chars but don't need typing delay)
+            total_chars += len(service)
+            total_chars += 1  # \n after each service
         
-        # Target: 3 seconds total, so delay per character
-        # Use slightly faster to account for processing time
-        char_delay = 2.5 / total_chars if total_chars > 0 else 0.03  # Max 2.5 seconds, leave buffer
+        # Target: Complete all typing in exactly 3 seconds
+        # Calculate delay per character to finish in 3 seconds
+        total_typing_time = 3.0  # 3 seconds total
+        char_delay = total_typing_time / total_chars if total_chars > 0 else 0.03
         
         try:
             # Send initial message with properly escaped cursor
