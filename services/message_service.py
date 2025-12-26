@@ -245,7 +245,7 @@ class MessageService:
     async def generate_service_highlights_typing(message_obj, user_display_name: str = None):
         """
         Generate service highlights with typing effect (Step 4)
-        Types out "伍拾支付企业级自动化结算中心" character by character
+        Types out all text character by character with 0.1 second delay
         
         Args:
             message_obj: Message object for sending messages
@@ -253,22 +253,44 @@ class MessageService:
         import logging
         logger = logging.getLogger(__name__)
         
-        title_text = "💎 "
-        title_chars = "伍拾支付企业级自动化结算中心"
+        # Complete text to be typed out
+        full_text_lines = [
+            "💎 伍拾支付企业级自动化结算中心",
+            "",
+            "✨ 我们为您提供：",
+            "",
+            "🕐 7×24小时 不间断服务",
+            "🏢 企业级 代收代付解决方案",
+            "🏦 银行级 资金安全保障",
+            "⚡ 毫秒级 交易处理速度"
+        ]
+        
+        # Join with newlines to create full text
+        full_text = "\n".join(full_text_lines)
+        
+        # For MarkdownV2, we need to format with bold for some parts
+        # But for typing effect, we'll type plain text first, then format at the end
+        title_part = "💎 伍拾支付企业级自动化结算中心"
+        intro_part = "✨ 我们为您提供："
+        services = [
+            "🕐 7×24小时 不间断服务",
+            "🏢 企业级 代收代付解决方案",
+            "🏦 银行级 资金安全保障",
+            "⚡ 毫秒级 交易处理速度"
+        ]
         
         try:
-            # Send initial message with just the icon (properly escaped)
-            initial_text = escape_markdown_v2(f"{title_text}_")
+            # Send initial empty message
             current_msg = await message_obj.answer(
-                text=initial_text,
+                text="_",
                 parse_mode="MarkdownV2"
             )
             
-            # Type out each character with 0.5 second delay
-            for i, char in enumerate(title_chars):
-                typed_so_far = title_text + title_chars[:i+1]
-                # Properly escape the text
-                escaped_text = escape_markdown_v2(f"{typed_so_far}_")
+            # Type out title character by character (0.1 second per char)
+            typed_text = ""
+            for char in title_part:
+                typed_text += char
+                escaped_text = escape_markdown_v2(f"{typed_text}_")
                 try:
                     await current_msg.edit_text(
                         text=escaped_text,
@@ -276,27 +298,79 @@ class MessageService:
                     )
                 except Exception as e:
                     logger.warning(f"Error editing message during typing: {e}")
-                    # If edit fails, send new message
-                    try:
-                        await current_msg.delete()
-                    except:
-                        pass
-                    current_msg = await message_obj.answer(
+                await asyncio.sleep(0.1)
+            
+            # Add newline
+            typed_text += "\n\n"
+            escaped_text = escape_markdown_v2(f"{typed_text}_")
+            try:
+                await current_msg.edit_text(
+                    text=escaped_text,
+                    parse_mode="MarkdownV2"
+                )
+            except:
+                pass
+            await asyncio.sleep(0.1)
+            
+            # Type out intro line
+            for char in intro_part:
+                typed_text += char
+                escaped_text = escape_markdown_v2(f"{typed_text}_")
+                try:
+                    await current_msg.edit_text(
                         text=escaped_text,
                         parse_mode="MarkdownV2"
                     )
-                await asyncio.sleep(0.5)
+                except:
+                    pass
+                await asyncio.sleep(0.1)
             
-            # Final message with complete title and service list
-            # Build final text carefully to ensure proper MarkdownV2 formatting
-            escaped_title = escape_markdown_v2(title_chars)
+            # Add newlines
+            typed_text += "\n\n"
+            escaped_text = escape_markdown_v2(f"{typed_text}_")
+            try:
+                await current_msg.edit_text(
+                    text=escaped_text,
+                    parse_mode="MarkdownV2"
+                )
+            except:
+                pass
+            await asyncio.sleep(0.1)
+            
+            # Type out each service line
+            for service_line in services:
+                for char in service_line:
+                    typed_text += char
+                    escaped_text = escape_markdown_v2(f"{typed_text}_")
+                    try:
+                        await current_msg.edit_text(
+                            text=escaped_text,
+                            parse_mode="MarkdownV2"
+                        )
+                    except:
+                        pass
+                    await asyncio.sleep(0.1)
+                # Add newline after each service
+                typed_text += "\n"
+                escaped_text = escape_markdown_v2(f"{typed_text}_")
+                try:
+                    await current_msg.edit_text(
+                        text=escaped_text,
+                        parse_mode="MarkdownV2"
+                    )
+                except:
+                    pass
+                await asyncio.sleep(0.1)
+            
+            # Remove cursor and format final message with MarkdownV2
+            # Apply formatting to make it look better
             final_text = (
-                f"{escape_markdown_v2(title_text)}*{escaped_title}*\n\n"
-                "*✨ 我们为您提供：*\n\n"
-                "*🕐 7×24小时* 不间断服务\n"
-                "*🏢 企业级* 代收代付解决方案\n"
-                "*🏦 银行级* 资金安全保障\n"
-                "*⚡ 毫秒级* 交易处理速度"
+                f"*{escape_markdown_v2('💎 伍拾支付企业级自动化结算中心')}*\n\n"
+                f"*{escape_markdown_v2('✨ 我们为您提供：')}*\n\n"
+                f"*{escape_markdown_v2('🕐 7×24小时')}* {escape_markdown_v2('不间断服务')}\n"
+                f"*{escape_markdown_v2('🏢 企业级')}* {escape_markdown_v2('代收代付解决方案')}\n"
+                f"*{escape_markdown_v2('🏦 银行级')}* {escape_markdown_v2('资金安全保障')}\n"
+                f"*{escape_markdown_v2('⚡ 毫秒级')}* {escape_markdown_v2('交易处理速度')}"
             )
             
             try:
@@ -305,28 +379,31 @@ class MessageService:
                     parse_mode="MarkdownV2"
                 )
             except Exception as e:
-                logger.warning(f"Error editing final message: {e}")
+                logger.warning(f"Error editing final formatted message: {e}")
+                # If formatting fails, just remove the cursor
                 try:
-                    await current_msg.delete()
+                    final_plain = escape_markdown_v2(typed_text.rstrip("_"))
+                    await current_msg.edit_text(
+                        text=final_plain,
+                        parse_mode="MarkdownV2"
+                    )
                 except:
-                    pass
-                # Always send final message even if edit fails
-                await message_obj.answer(
-                    text=final_text,
-                    parse_mode="MarkdownV2"
-                )
+                    # Send new formatted message
+                    await message_obj.answer(
+                        text=final_text,
+                        parse_mode="MarkdownV2"
+                    )
                 
         except Exception as e:
             logger.error(f"Error in generate_service_highlights_typing: {e}", exc_info=True)
             # Fallback: send simple version without typing effect
-            escaped_title = escape_markdown_v2(title_chars)
             final_text = (
-                f"{escape_markdown_v2(title_text)}*{escaped_title}*\n\n"
-                "*✨ 我们为您提供：*\n\n"
-                "*🕐 7×24小时* 不间断服务\n"
-                "*🏢 企业级* 代收代付解决方案\n"
-                "*🏦 银行级* 资金安全保障\n"
-                "*⚡ 毫秒级* 交易处理速度"
+                f"*{escape_markdown_v2('💎 伍拾支付企业级自动化结算中心')}*\n\n"
+                f"*{escape_markdown_v2('✨ 我们为您提供：')}*\n\n"
+                f"*{escape_markdown_v2('🕐 7×24小时')}* {escape_markdown_v2('不间断服务')}\n"
+                f"*{escape_markdown_v2('🏢 企业级')}* {escape_markdown_v2('代收代付解决方案')}\n"
+                f"*{escape_markdown_v2('🏦 银行级')}* {escape_markdown_v2('资金安全保障')}\n"
+                f"*{escape_markdown_v2('⚡ 毫秒级')}* {escape_markdown_v2('交易处理速度')}"
             )
             await message_obj.answer(
                 text=final_text,
