@@ -144,29 +144,93 @@ async def callback_admin_menu(callback: CallbackQuery):
 async def handle_admin_users(callback: CallbackQuery):
     """Handle admin users management"""
     from database.db import db
+    from datetime import datetime
+    from utils.text_utils import format_number_markdown, format_separator
     
-    from utils.text_utils import format_number_markdown
-    
+    # Get statistics
     cursor = db.execute("SELECT COUNT(*) FROM users")
     total_users = cursor.fetchone()[0]
     
     cursor = db.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
     active_users = cursor.fetchone()[0]
     
+    # Get today's new users
+    cursor = db.execute("SELECT COUNT(*) FROM users WHERE DATE(created_at) = DATE('now')")
+    today_new = cursor.fetchone()[0]
+    
+    # Get VIP users
+    cursor = db.execute("SELECT COUNT(*) FROM users WHERE vip_level > 0")
+    vip_users = cursor.fetchone()[0]
+    
+    # Get recent users
+    cursor = db.execute("""
+        SELECT user_id, username, first_name, vip_level, created_at 
+        FROM users 
+        ORDER BY created_at DESC 
+        LIMIT 10
+    """)
+    recent_users = cursor.fetchall()
+    
+    separator = format_separator(30)
     total_users_str = format_number_markdown(total_users)
     active_users_str = format_number_markdown(active_users)
+    today_new_str = format_number_markdown(today_new)
+    vip_users_str = format_number_markdown(vip_users)
     
     text = (
-        f"*👥 用户管理*\n\n"
+        f"{separator}\n"
+        f"  *👥 用户管理*\n"
+        f"{separator}\n\n"
+        
+        f"*📊 用户统计*\n"
+        f"{separator}\n"
         f"总用户数：{total_users_str}\n"
-        f"活跃用户：{active_users_str}\n\n"
-        "功能开发中\\.\\.\\."
+        f"活跃用户：{active_users_str}\n"
+        f"今日新增：{today_new_str}\n"
+        f"VIP用户：{vip_users_str}\n\n"
+        
+        f"*📋 最近注册用户（前10名）*\n"
+        f"{separator}\n"
     )
+    
+    if not recent_users:
+        text += "暂无用户数据"
+    else:
+        for idx, user in enumerate(recent_users[:10], 1):
+            username = user.get('username') or '无'
+            username_display = f"@{username}" if username != '无' else "无"
+            first_name = user.get('first_name') or ''
+            vip_level = user.get('vip_level', 0)
+            user_id = user.get('user_id')
+            created_at = user.get('created_at', '')[:10] if user.get('created_at') else 'N/A'
+            
+            username_escaped = escape_markdown_v2(username_display)
+            first_name_escaped = escape_markdown_v2(first_name) if first_name else "未设置"
+            vip_text = f"VIP{vip_level}" if vip_level > 0 else "普通"
+            user_id_str = format_number_markdown(user_id)
+            created_at_escaped = escape_markdown_v2(created_at)
+            
+            text += (
+                f"{format_number_markdown(idx)}\\. {username_escaped} \\(ID: {user_id_str}\\)\n"
+                f"   姓名：{first_name_escaped} \\| {escape_markdown_v2(vip_text)} \\| {created_at_escaped}\n\n"
+            )
+    
+    text += "\n💡 更多功能开发中\\.\\.\\."
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="🔍 搜索用户", callback_data="admin_user_search"),
+            InlineKeyboardButton(text="📊 用户报表", callback_data="admin_user_report")
+        ],
+        [
+            InlineKeyboardButton(text="🔙 返回管理面板", callback_data="admin_panel")
+        ]
+    ])
     
     await callback.message.edit_text(
         text=text,
         parse_mode="MarkdownV2",
-        reply_markup=get_admin_keyboard()
+        reply_markup=keyboard
     )
     await callback.answer()
 
