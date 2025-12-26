@@ -519,25 +519,43 @@ async def callback_settings_more(callback: CallbackQuery):
     """Handle more settings"""
     try:
         from utils.text_utils import format_separator
+        from config import Config
         
         separator = format_separator(30)
+        support_url_escaped = escape_markdown_v2(Config.SUPPORT_URL)
+        support_username_escaped = escape_markdown_v2(Config.SUPPORT_USERNAME)
         
         text = (
             f"{separator}\n"
             f"  *⚙️ 更多设置*\n"
             f"{separator}\n\n"
             
-            f"*即将推出：*\n"
+            f"*💎 私人订制会员服务*\n\n"
+            f"需要更多*私人订制会员功能*？\n\n"
+            f"请与专属客服联系，为您定制\n"
+            f"*专属VIP服务*，享受更高级的\n"
+            f"个性化体验\\！\n\n"
+            f"{separator}\n\n"
+            
+            f"*📋 可定制功能包括：*\n"
             f"📤 数据导出\n"
             f"🔐 隐私设置\n"
             f"🌍 时区设置\n"
             f"💬 消息偏好\n"
             f"🎨 主题设置\n\n"
             
-            f"敬请期待！"
+            f"*💬 联系客服：*\n"
+            f"Telegram：@{support_username_escaped}\n"
+            f"点击下方按钮快速联系"
         )
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="💬 联系专属客服",
+                    url=Config.SUPPORT_URL
+                )
+            ],
             [
                 InlineKeyboardButton(text="🔙 返回设置", callback_data="settings")
             ]
