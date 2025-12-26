@@ -1,7 +1,9 @@
 """
 Message service for generating professional messages
 """
+import os
 from datetime import datetime
+from pathlib import Path
 from utils.text_utils import escape_markdown_v2, format_separator, get_user_display_name
 from services.user_service import UserService
 
@@ -135,4 +137,155 @@ class MessageService:
         )
         
         return rates_text
+    
+    @staticmethod
+    def get_logo_path() -> str:
+        """Get logo file path"""
+        # Try multiple possible locations
+        # __file__ is in services/message_service.py, so parent.parent is wushizhifu-bot directory
+        possible_paths = [
+            Path(__file__).parent.parent / "logo_300.png",  # wushizhifu-bot/logo_300.png
+            Path(__file__).parent.parent / "logo.png",      # wushizhifu-bot/logo.png
+            Path(__file__).parent.parent.parent / "logo_300.png",  # parent project root
+            Path(__file__).parent.parent.parent / "logo.png",      # parent project root
+        ]
+        
+        for path in possible_paths:
+            try:
+                if path.exists():
+                    return str(path.absolute())
+            except Exception:
+                continue
+        
+        # Return None if not found
+        return None
+    
+    @staticmethod
+    def generate_loading_animation() -> str:
+        """Generate loading animation message"""
+        return (
+            "⏳ *正在初始化系统\\.\\.\\.*\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "█▒▒▒▒▒▒▒▒▒▒ *10\\%*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        )
+    
+    @staticmethod
+    def generate_welcome_card(user, is_new_user: bool = False) -> str:
+        """Generate personalized welcome card (Step 3)"""
+        user_display_name = get_user_display_name(user)
+        
+        # Get current time for greeting
+        current_hour = datetime.utcnow().hour
+        if 5 <= current_hour < 12:
+            time_greeting = "早上好"
+        elif 12 <= current_hour < 18:
+            time_greeting = "下午好"
+        elif 18 <= current_hour < 22:
+            time_greeting = "晚上好"
+        else:
+            time_greeting = "您好"
+        
+        user_info_parts = []
+        if user.username:
+            user_info_parts.append(f"👤 *Telegram*: `@{escape_markdown_v2(user.username)}`")
+        if user.id:
+            user_info_parts.append(f"🆔 *UID*: `{escape_markdown_v2(str(user.id))}`")
+        if getattr(user, "is_premium", False):
+            user_info_parts.append("⭐ *Premium 会员*")
+        
+        user_info_text = " \\| ".join(user_info_parts) if user_info_parts else ""
+        
+        # Get user data for status
+        user_data = UserService.get_user(user.id)
+        message_count = user_data.get('message_count', 0) if user_data else 0
+        
+        if is_new_user:
+            welcome_title = f"🎉 *欢迎加入伍拾支付生态系统\\!*"
+            status_line = "*首次登录成功，您的专属账户已激活*"
+        else:
+            welcome_title = f"✨ *{time_greeting}，{escape_markdown_v2(user_display_name)} \\!*"
+            status_line = f"*账户状态: 正常 \\| 消息数: {message_count}*"
+        
+        card_text = (
+            "╔═══════════════════════════════════════╗\n"
+            f"║  {welcome_title}\n"
+            f"║  {status_line}\n"
+        )
+        
+        if user_info_text:
+            card_text += f"║  {user_info_text}\n"
+        
+        card_text += "╚═══════════════════════════════════════╝"
+        
+        return card_text
+    
+    @staticmethod
+    def generate_system_status_panel() -> str:
+        """Generate system status monitoring panel (Step 4)"""
+        current_time = datetime.utcnow().strftime("%Y\\-%m\\-%d %H:%M UTC")
+        
+        panel_text = (
+            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
+            "┃  📊 *系统状态实时监控*            ┃\n"
+            "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
+            "┃  🟢 *服务状态*: 在线 \\(100\\%\\)    ┃\n"
+            "┃  🔒 *安全通道*: TLS 1\\.3 已建立   ┃\n"
+            "┃  ⚡ *响应时间*: < 50ms            ┃\n"
+            "┃  🛡️  *风控系统*: 实时监控中      ┃\n"
+            f"┃  📅 *当前时间*: `{current_time}` ┃\n"
+            "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
+        )
+        
+        return panel_text
+    
+    @staticmethod
+    def generate_service_highlights(user_display_name: str) -> str:
+        """Generate service highlights section (Step 5)"""
+        user_name_escaped = escape_markdown_v2(user_display_name)
+        
+        highlights_text = (
+            "💎 *伍拾支付企业级自动化结算中心*\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "✨ *我们为您提供：*\n\n"
+            "🕐 *7×24小时* 不间断服务\n"
+            "🏢 *企业级* 代收代付解决方案\n"
+            "🏦 *银行级* 资金安全保障\n"
+            "⚡ *毫秒级* 交易处理速度\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        )
+        
+        return highlights_text
+    
+    @staticmethod
+    def generate_exchange_rate_card() -> str:
+        """Generate exchange rate card (Step 6)"""
+        rate_card = (
+            "📈 *今日汇率概览*\n\n"
+            "╭─────────────────────────╮\n"
+            "│ 🇺🇸 *USDT/CNY*: *7\\.42*  │\n"
+            "│    \\(实时锁定\\)          │\n"
+            "│                          │\n"
+            "│ ⚡ *平均到账*: *3\\.2秒*  │\n"
+            "│                          │\n"
+            "│ 💱 *24H交易量*: *$12\\.8M*│\n"
+            "╰─────────────────────────╯"
+        )
+        
+        return rate_card
+    
+    @staticmethod
+    def generate_action_prompt() -> str:
+        """Generate action prompt (Step 7)"""
+        return "👇 *请选择您的操作终端：*"
+    
+    @staticmethod
+    def generate_logo_caption() -> str:
+        """Generate caption for logo image"""
+        return (
+            "═══════════════════════════════\n"
+            "   💎 伍拾支付 WUSHI PAY 💎\n"
+            "   Enterprise Payment Gateway\n"
+            "═══════════════════════════════"
+        )
 

@@ -1,9 +1,11 @@
 """
 User interaction handlers for WuShiPay Telegram Bot
 """
+import asyncio
 import logging
+from pathlib import Path
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.filters import Command
 from config import Config
 from keyboards.main_kb import get_main_keyboard
@@ -19,8 +21,8 @@ logger = logging.getLogger(__name__)
 @user_router.message(Command("start"))
 async def cmd_start(message: Message):
     """
-    Handle /start command.
-    Sends professional personalized welcome message.
+    Handle /start command with progressive welcome experience.
+    Implements step-by-step progressive display for enhanced UX.
     Also handles referral code from /start?ref=CODE
     """
     try:
@@ -54,28 +56,123 @@ async def cmd_start(message: Message):
         # Check if user is admin
         is_admin = AdminRepository.is_admin(user.id)
         
-        # Generate professional welcome message
-        welcome_text = MessageService.generate_welcome_message(user, is_new_user)
+        # === STEP 1: Send LOGO Image ===
+        logo_path = MessageService.get_logo_path()
+        loading_msg = None
         
-        # Add referral welcome message if applicable
-        if referral_code and is_new_user:
-            welcome_text += "\n\n🎁 *您已通过好友邀请注册，首次交易可获得 5 USDT 红包！*"
+        if logo_path:
+            try:
+                logo_caption = MessageService.generate_logo_caption()
+                photo = FSInputFile(logo_path)
+                await message.answer_photo(
+                    photo=photo,
+                    caption=logo_caption,
+                    parse_mode="MarkdownV2"
+                )
+            except Exception as e:
+                logger.warning(f"Could not send logo image: {e}")
+        else:
+            logger.warning("Logo file not found, skipping image step")
         
-        # Send message with keyboard (pass admin status)
-        await message.answer(
-            text=welcome_text,
-            parse_mode="MarkdownV2",
-            reply_markup=get_main_keyboard(user_id=user.id, is_admin=is_admin)
-        )
+        # Small delay before next step
+        await asyncio.sleep(0.3)
+        
+        # === STEP 2: Loading Animation ===
+        try:
+            loading_text = MessageService.generate_loading_animation()
+            loading_msg = await message.answer(
+                text=loading_text,
+                parse_mode="MarkdownV2"
+            )
+            await asyncio.sleep(0.5)  # Show loading for 0.5 seconds
+            
+            # Delete loading message
+            try:
+                await loading_msg.delete()
+            except:
+                pass
+        except Exception as e:
+            logger.warning(f"Error showing loading animation: {e}")
+        
+        await asyncio.sleep(0.2)
+        
+        # === STEP 3: Personalized Welcome Card ===
+        try:
+            welcome_card = MessageService.generate_welcome_card(user, is_new_user)
+            await message.answer(
+                text=welcome_card,
+                parse_mode="MarkdownV2"
+            )
+        except Exception as e:
+            logger.error(f"Error sending welcome card: {e}", exc_info=True)
+        
+        await asyncio.sleep(0.3)
+        
+        # === STEP 4: System Status Panel ===
+        try:
+            status_panel = MessageService.generate_system_status_panel()
+            await message.answer(
+                text=status_panel,
+                parse_mode="MarkdownV2"
+            )
+        except Exception as e:
+            logger.error(f"Error sending status panel: {e}", exc_info=True)
+        
+        await asyncio.sleep(0.3)
+        
+        # === STEP 5: Service Highlights ===
+        try:
+            from utils.text_utils import get_user_display_name
+            user_display_name = get_user_display_name(user)
+            highlights = MessageService.generate_service_highlights(user_display_name)
+            await message.answer(
+                text=highlights,
+                parse_mode="MarkdownV2"
+            )
+        except Exception as e:
+            logger.error(f"Error sending highlights: {e}", exc_info=True)
+        
+        await asyncio.sleep(0.3)
+        
+        # === STEP 6: Exchange Rate Card ===
+        try:
+            rate_card = MessageService.generate_exchange_rate_card()
+            await message.answer(
+                text=rate_card,
+                parse_mode="MarkdownV2"
+            )
+        except Exception as e:
+            logger.error(f"Error sending rate card: {e}", exc_info=True)
+        
+        await asyncio.sleep(0.3)
+        
+        # === STEP 7: Action Prompt + Keyboard ===
+        try:
+            action_prompt = MessageService.generate_action_prompt()
+            
+            # Add referral welcome message if applicable
+            if referral_code and is_new_user:
+                action_prompt += "\n\n🎁 *您已通过好友邀请注册，首次交易可获得 5 USDT 红包\\!*"
+            
+            await message.answer(
+                text=action_prompt,
+                parse_mode="MarkdownV2",
+                reply_markup=get_main_keyboard(user_id=user.id, is_admin=is_admin)
+            )
+        except Exception as e:
+            logger.error(f"Error sending action prompt: {e}", exc_info=True)
         
         # Log user interaction
         logger.info(f"User {user.id} ({user.username or 'no username'}) sent /start command (new: {is_new_user}, ref: {referral_code or 'none'})")
         
     except Exception as e:
         logger.error(f"Error in cmd_start: {e}", exc_info=True)
-        await message.answer(
-            "❌ 抱歉，系统暂时无法处理您的请求。请稍后再试或联系客服。"
-        )
+        try:
+            await message.answer(
+                "❌ 抱歉，系统暂时无法处理您的请求。请稍后再试或联系客服。"
+            )
+        except:
+            pass
 
 
 @user_router.message(Command("help"))
