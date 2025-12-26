@@ -68,7 +68,22 @@ async def handle_group_message(message: Message):
                     
                     logger.info(f"User {user_id} verification attempt in group {group_id}: {error_msg}")
                 
-                # Don't process as regular message
+                # Don't process as regular message - delete the message
+                try:
+                    await message.delete()
+                except:
+                    pass
+                return
+            else:
+                # User is pending but no verification record - restrict messaging
+                try:
+                    await message.delete()
+                    await message.answer(
+                        f"⚠️ 您尚未完成验证，请在私聊中回答问题或等待管理员审核",
+                        reply_to_message_id=message.message_id if message.message_id else None
+                    )
+                except:
+                    pass
                 return
         
         # Check if message is a command (skip sensitive word check for commands)
