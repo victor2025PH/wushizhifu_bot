@@ -10,7 +10,7 @@ from database.admin_repository import AdminRepository
 from database.user_repository import UserRepository
 from database.sensitive_words_repository import SensitiveWordsRepository
 from database.group_repository import GroupRepository
-from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown
+from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown, format_percentage_markdown, format_separator
 from database.db import db
 
 router = Router()
@@ -125,8 +125,16 @@ async def callback_admin_menu(callback: CallbackQuery):
             await callback_admin_panel(callback)
         elif action == "users":
             await handle_admin_users(callback)
+        elif action == "user_search":
+            await handle_admin_user_search(callback)
+        elif action == "user_report":
+            await handle_admin_user_report(callback)
         elif action == "stats":
             await handle_admin_stats(callback)
+        elif action == "stats_time":
+            await handle_admin_stats_time(callback)
+        elif action == "stats_detail":
+            await handle_admin_stats_detail(callback)
         elif action == "words":
             await handle_admin_words(callback)
         elif action == "verify":
@@ -208,7 +216,7 @@ async def handle_admin_users(callback: CallbackQuery):
             username_escaped = escape_markdown_v2(username_display)
             first_name_escaped = escape_markdown_v2(first_name) if first_name else "未设置"
             vip_text = f"VIP{vip_level}" if vip_level > 0 else "普通"
-            user_id_str = format_number_markdown(user_id)
+            user_id_str = escape_markdown_v2(str(user_id))
             created_at_escaped = escape_markdown_v2(created_at)
             
             text += (
@@ -472,7 +480,7 @@ async def handle_admin_verify(callback: CallbackQuery):
             group_title = member['group_title'] if member['group_title'] else f"群组 {member['group_id']}"
             joined_at = member['joined_at'][:16] if member['joined_at'] else 'N/A'
             
-            user_id_str = format_number_markdown(user_id)
+            user_id_str = escape_markdown_v2(str(user_id))
             group_title_escaped = escape_markdown_v2(str(group_title))
             joined_at_escaped = escape_markdown_v2(joined_at)
             
@@ -619,7 +627,7 @@ async def handle_admin_add(callback: CallbackQuery):
             username_escaped = escape_markdown_v2(username_display)
             first_name_escaped = escape_markdown_v2(first_name) if first_name else "未设置"
             role_escaped = escape_markdown_v2(role)
-            user_id_str = format_number_markdown(user_id)
+            user_id_str = escape_markdown_v2(str(user_id))
             added_at_escaped = escape_markdown_v2(added_at)
             
             text += (
@@ -708,6 +716,400 @@ async def cmd_add_word(message: Message):
             
     except Exception as e:
         logger.error(f"Error in cmd_add_word: {e}", exc_info=True)
+
+
+async def handle_admin_user_search(callback: CallbackQuery):
+    """Handle user search functionality"""
+    try:
+        from utils.text_utils import format_separator
+        
+        separator = format_separator(30)
+        text = (
+            f"{separator}\n"
+            f"  *🔍 搜索用户*\n"
+            f"{separator}\n\n"
+            f"*搜索方式：*\n"
+            f"1\\. 按用户ID搜索\n"
+            f"2\\. 按用户名搜索\n"
+            f"3\\. 按VIP等级搜索\n"
+            f"4\\. 按注册时间搜索\n\n"
+            f"{separator}\n"
+            f"*操作说明：*\n"
+            f"请使用命令进行搜索：\n\n"
+            f"`/search_user <条件>`\n\n"
+            f"*示例：*\n"
+            f"• `/search_user 123456789` \\(按ID\\)\n"
+            f"• `/search_user @username` \\(按用户名\\)\n"
+            f"• `/search_user vip:1` \\(VIP等级\\)\n"
+            f"• `/search_user date:2025-12-26` \\(注册日期\\)\n\n"
+            f"💡 搜索功能正在开发中\\.\\.\\."
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔙 返回用户管理", callback_data="admin_users")
+            ]
+        ])
+        
+        await callback.message.edit_text(
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=keyboard
+        )
+        await callback.answer()
+        
+    except Exception as e:
+        logger.error(f"Error in handle_admin_user_search: {e}", exc_info=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+
+
+async def handle_admin_user_report(callback: CallbackQuery):
+    """Handle user report functionality"""
+    try:
+        from database.db import db
+        from utils.text_utils import format_separator, format_datetime_markdown
+        from datetime import datetime, timedelta
+        
+        separator = format_separator(30)
+        
+        # Get user growth statistics
+        cursor = db.execute("SELECT COUNT(*) FROM users")
+        total_users = cursor.fetchone()[0]
+        
+        cursor = db.execute("SELECT COUNT(*) FROM users WHERE DATE(created_at) = DATE('now')")
+        today_new = cursor.fetchone()[0]
+        
+        cursor = db.execute("SELECT COUNT(*) FROM users WHERE DATE(created_at) >= DATE('now', '-7 days')")
+        week_new = cursor.fetchone()[0]
+        
+        cursor = db.execute("SELECT COUNT(*) FROM users WHERE DATE(created_at) >= DATE('now', '-30 days')")
+        month_new = cursor.fetchone()[0]
+        
+        # Get active users (users active in last 7 days)
+        cursor = db.execute("""
+            SELECT COUNT(DISTINCT user_id) 
+            FROM transactions 
+            WHERE DATE(created_at) >= DATE('now', '-7 days')
+        """)
+        week_active = cursor.fetchone()[0] or 0
+        
+        # Get VIP users
+        cursor = db.execute("SELECT COUNT(*) FROM users WHERE vip_level > 0")
+        vip_users = cursor.fetchone()[0]
+        
+        # Get VIP distribution
+        cursor = db.execute("""
+            SELECT vip_level, COUNT(*) as count 
+            FROM users 
+            WHERE vip_level > 0 
+            GROUP BY vip_level 
+            ORDER BY vip_level
+        """)
+        vip_distribution = cursor.fetchall()
+        
+        total_users_str = format_number_markdown(total_users)
+        today_new_str = format_number_markdown(today_new)
+        week_new_str = format_number_markdown(week_new)
+        month_new_str = format_number_markdown(month_new)
+        week_active_str = format_number_markdown(week_active)
+        vip_users_str = format_number_markdown(vip_users)
+        
+        text = (
+            f"{separator}\n"
+            f"  *📊 用户报表*\n"
+            f"{separator}\n\n"
+            f"*📈 用户增长报表*\n"
+            f"{separator}\n"
+            f"总用户数：{total_users_str}\n"
+            f"今日新增：{today_new_str}\n"
+            f"本周新增：{week_new_str}\n"
+            f"本月新增：{month_new_str}\n\n"
+            f"*👥 活跃度报表*\n"
+            f"{separator}\n"
+            f"近7天活跃用户：{week_active_str}\n\n"
+            f"*💎 VIP用户分析*\n"
+            f"{separator}\n"
+            f"VIP用户总数：{vip_users_str}\n"
+        )
+        
+        if vip_distribution:
+            text += f"\n*VIP等级分布：*\n"
+            for vip_stat in vip_distribution:
+                vip_level = vip_stat['vip_level']
+                count = vip_stat['count']
+                count_str = format_number_markdown(count)
+                text += f"VIP{vip_level}：{count_str} 人\n"
+        
+        text += (
+            f"\n{separator}\n"
+            f"💡 更多报表功能开发中\\.\\.\\."
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔙 返回用户管理", callback_data="admin_users")
+            ]
+        ])
+        
+        await callback.message.edit_text(
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=keyboard
+        )
+        await callback.answer()
+        
+    except Exception as e:
+        logger.error(f"Error in handle_admin_user_report: {e}", exc_info=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+
+
+async def handle_admin_stats_time(callback: CallbackQuery):
+    """Handle time-based statistics"""
+    try:
+        from database.db import db
+        from utils.text_utils import format_separator
+        
+        separator = format_separator(30)
+        
+        # Get today's statistics
+        cursor = db.execute("""
+            SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total 
+            FROM transactions 
+            WHERE DATE(created_at) = DATE('now') AND status = 'paid'
+        """)
+        today_result = cursor.fetchone()
+        today_count = today_result['count'] or 0
+        today_amount = float(today_result['total'] or 0)
+        
+        # Get yesterday's statistics
+        cursor = db.execute("""
+            SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total 
+            FROM transactions 
+            WHERE DATE(created_at) = DATE('now', '-1 day') AND status = 'paid'
+        """)
+        yesterday_result = cursor.fetchone()
+        yesterday_count = yesterday_result['count'] or 0
+        yesterday_amount = float(yesterday_result['total'] or 0)
+        
+        # Get this week's statistics
+        cursor = db.execute("""
+            SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total 
+            FROM transactions 
+            WHERE DATE(created_at) >= DATE('now', '-7 days') AND status = 'paid'
+        """)
+        week_result = cursor.fetchone()
+        week_count = week_result['count'] or 0
+        week_amount = float(week_result['total'] or 0)
+        
+        # Get this month's statistics
+        cursor = db.execute("""
+            SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total 
+            FROM transactions 
+            WHERE DATE(created_at) >= DATE('now', 'start of month') AND status = 'paid'
+        """)
+        month_result = cursor.fetchone()
+        month_count = month_result['count'] or 0
+        month_amount = float(month_result['total'] or 0)
+        
+        # Get user statistics
+        cursor = db.execute("SELECT COUNT(*) FROM users WHERE DATE(created_at) = DATE('now')")
+        today_users = cursor.fetchone()[0]
+        
+        cursor = db.execute("SELECT COUNT(*) FROM users WHERE DATE(created_at) >= DATE('now', '-7 days')")
+        week_users = cursor.fetchone()[0]
+        
+        cursor = db.execute("SELECT COUNT(*) FROM users WHERE DATE(created_at) >= DATE('now', 'start of month')")
+        month_users = cursor.fetchone()[0]
+        
+        # Calculate growth rates
+        today_growth = ((today_amount - yesterday_amount) / yesterday_amount * 100) if yesterday_amount > 0 else 0
+        week_growth = ((week_amount - (yesterday_amount * 7)) / (yesterday_amount * 7) * 100) if yesterday_amount > 0 else 0
+        
+        today_count_str = format_number_markdown(today_count)
+        today_amount_str = format_amount_markdown(today_amount)
+        yesterday_count_str = format_number_markdown(yesterday_count)
+        yesterday_amount_str = format_amount_markdown(yesterday_amount)
+        week_count_str = format_number_markdown(week_count)
+        week_amount_str = format_amount_markdown(week_amount)
+        month_count_str = format_number_markdown(month_count)
+        month_amount_str = format_amount_markdown(month_amount)
+        today_users_str = format_number_markdown(today_users)
+        week_users_str = format_number_markdown(week_users)
+        month_users_str = format_number_markdown(month_users)
+        today_growth_str = format_number_markdown(abs(today_growth), decimal_places=1)
+        week_growth_str = format_number_markdown(abs(week_growth), decimal_places=1)
+        
+        text = (
+            f"{separator}\n"
+            f"  *📅 时间统计*\n"
+            f"{separator}\n\n"
+            f"*💳 交易统计*\n"
+            f"{separator}\n"
+            f"*今日*\n"
+            f"交易：{today_count_str} 笔 / {today_amount_str}\n"
+        )
+        
+        if yesterday_amount > 0:
+            growth_icon = "📈" if today_growth >= 0 else "📉"
+            text += f"{growth_icon} 较昨日：{today_growth_str}%\n\n"
+        else:
+            text += "\n"
+        
+        text += (
+            f"*昨日*\n"
+            f"交易：{yesterday_count_str} 笔 / {yesterday_amount_str}\n\n"
+            f"*本周*\n"
+            f"交易：{week_count_str} 笔 / {week_amount_str}\n"
+        )
+        
+        if yesterday_amount > 0:
+            growth_icon = "📈" if week_growth >= 0 else "📉"
+            text += f"{growth_icon} 较上周：{week_growth_str}%\n\n"
+        else:
+            text += "\n"
+        
+        text += (
+            f"*本月*\n"
+            f"交易：{month_count_str} 笔 / {month_amount_str}\n\n"
+            f"*👥 用户统计*\n"
+            f"{separator}\n"
+            f"今日新增：{today_users_str}\n"
+            f"本周新增：{week_users_str}\n"
+            f"本月新增：{month_users_str}\n\n"
+            f"💡 自定义时间范围功能开发中\\.\\.\\."
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔙 返回系统统计", callback_data="admin_stats")
+            ]
+        ])
+        
+        await callback.message.edit_text(
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=keyboard
+        )
+        await callback.answer()
+        
+    except Exception as e:
+        logger.error(f"Error in handle_admin_stats_time: {e}", exc_info=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+
+
+async def handle_admin_stats_detail(callback: CallbackQuery):
+    """Handle detailed statistics report"""
+    try:
+        from database.db import db
+        from utils.text_utils import format_separator
+        
+        separator = format_separator(30)
+        
+        # Get detailed transaction statistics
+        cursor = db.execute("""
+            SELECT status, COUNT(*) as count, COALESCE(SUM(amount), 0) as total 
+            FROM transactions 
+            GROUP BY status
+        """)
+        status_stats = cursor.fetchall()
+        
+        # Get channel statistics
+        cursor = db.execute("""
+            SELECT payment_channel, COUNT(*) as count, COALESCE(SUM(amount), 0) as total 
+            FROM transactions 
+            WHERE status = 'paid'
+            GROUP BY payment_channel
+        """)
+        channel_stats = cursor.fetchall()
+        
+        # Get transaction type statistics
+        cursor = db.execute("""
+            SELECT transaction_type, COUNT(*) as count, COALESCE(SUM(amount), 0) as total 
+            FROM transactions 
+            WHERE status = 'paid'
+            GROUP BY transaction_type
+        """)
+        type_stats = cursor.fetchall()
+        
+        text = (
+            f"{separator}\n"
+            f"  *📊 详细报表*\n"
+            f"{separator}\n\n"
+            f"*💳 交易状态统计*\n"
+            f"{separator}\n"
+        )
+        
+        total_all = 0
+        for stat in status_stats:
+            status = stat['status']
+            count = stat['count']
+            amount = float(stat['total'] or 0)
+            total_all += count
+            
+            status_text = {"paid": "已支付", "pending": "待支付", "failed": "失败", "cancelled": "已取消"}.get(status, status)
+            count_str = format_number_markdown(count)
+            amount_str = format_amount_markdown(amount)
+            percentage = (count / total_all * 100) if total_all > 0 else 0
+            percentage_str = format_number_markdown(percentage, decimal_places=1)
+            
+            text += f"{escape_markdown_v2(status_text)}：{count_str} 笔 \\({percentage_str}%\\) / {amount_str}\n"
+        
+        text += "\n"
+        
+        if channel_stats:
+            text += f"*💳 支付渠道统计*\n"
+            text += f"{separator}\n"
+            total_paid = sum(float(stat['total'] or 0) for stat in channel_stats)
+            for stat in channel_stats:
+                channel = stat['payment_channel']
+                count = stat['count']
+                amount = float(stat['total'] or 0)
+                percentage = (amount / total_paid * 100) if total_paid > 0 else 0
+                
+                channel_text = "支付宝" if channel == "alipay" else "微信支付"
+                count_str = format_number_markdown(count)
+                amount_str = format_amount_markdown(amount)
+                percentage_str = format_number_markdown(percentage, decimal_places=1)
+                
+                text += f"{escape_markdown_v2(channel_text)}：{count_str} 笔 / {amount_str} \\({percentage_str}%\\)\n"
+            text += "\n"
+        
+        if type_stats:
+            text += f"*📋 交易类型统计*\n"
+            text += f"{separator}\n"
+            for stat in type_stats:
+                trans_type = stat['transaction_type']
+                count = stat['count']
+                amount = float(stat['total'] or 0)
+                
+                type_text = {"receive": "收款", "pay": "付款"}.get(trans_type, trans_type)
+                count_str = format_number_markdown(count)
+                amount_str = format_amount_markdown(amount)
+                
+                text += f"{escape_markdown_v2(type_text)}：{count_str} 笔 / {amount_str}\n"
+            text += "\n"
+        
+        text += (
+            f"{separator}\n"
+            f"💡 更多详细报表功能开发中\\.\\.\\."
+        )
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔙 返回系统统计", callback_data="admin_stats")
+            ]
+        ])
+        
+        await callback.message.edit_text(
+            text=text,
+            parse_mode="MarkdownV2",
+            reply_markup=keyboard
+        )
+        await callback.answer()
+        
+    except Exception as e:
+        logger.error(f"Error in handle_admin_stats_detail: {e}", exc_info=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 
 
 @router.callback_query(F.data == "main_menu")
