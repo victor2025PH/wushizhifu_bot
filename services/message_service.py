@@ -338,11 +338,10 @@ class MessageService:
         Note: When PNG has transparent background (alpha channel), 
         it will blend perfectly with Telegram's chat background,
         creating an emoji-like effect.
+        Simplified without borders for cleaner look.
         """
         return (
-            "═══════════════════════════════\n"
-            "   💎 伍拾支付 WUSHI PAY 💎\n"
-            "   Enterprise Payment Gateway\n"
-            "═══════════════════════════════"
+            "💎 *伍拾支付 WUSHI PAY* 💎\n"
+            "*Enterprise Payment Gateway*"
         )
 
