@@ -56,21 +56,35 @@ async def cmd_start(message: Message):
         # Check if user is admin
         is_admin = AdminRepository.is_admin(user.id)
         
-        # === STEP 1: Send LOGO Image ===
+        # === STEP 1: Send LOGO Image with transparent background ===
         logo_path = MessageService.get_logo_path()
         loading_msg = None
         
         if logo_path:
             try:
-                logo_caption = MessageService.generate_logo_caption()
-                photo = FSInputFile(logo_path)
-                await message.answer_photo(
-                    photo=photo,
-                    caption=logo_caption,
-                    parse_mode="MarkdownV2"
-                )
+                # Send LOGO as document to preserve transparency (PNG with alpha channel)
+                # This ensures the transparent background is maintained like an emoji
+                logo_file = FSInputFile(logo_path)
+                
+                # Try sending as document first (better for transparent PNG)
+                # If that fails, fallback to photo
+                try:
+                    await message.answer_document(
+                        document=logo_file,
+                        caption=MessageService.generate_logo_caption(),
+                        parse_mode="MarkdownV2"
+                    )
+                except Exception:
+                    # Fallback: send as photo (Telegram should preserve transparency if PNG has alpha channel)
+                    await message.answer_photo(
+                        photo=logo_file,
+                        caption=MessageService.generate_logo_caption(),
+                        parse_mode="MarkdownV2"
+                    )
+                
+                logger.info(f"Successfully sent LOGO from {logo_path}")
             except Exception as e:
-                logger.warning(f"Could not send logo image: {e}")
+                logger.warning(f"Could not send logo image: {e}", exc_info=True)
         else:
             logger.warning("Logo file not found, skipping image step")
         

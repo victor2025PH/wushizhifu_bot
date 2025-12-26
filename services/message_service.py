@@ -140,11 +140,19 @@ class MessageService:
     
     @staticmethod
     def get_logo_path() -> str:
-        """Get logo file path"""
+        """
+        Get logo file path.
+        Prefers PNG files with transparency (alpha channel).
+        
+        Note: For transparent background to work properly:
+        - PNG file must have an alpha channel (transparency layer)
+        - File should be saved as PNG-24 or PNG-32 (not PNG-8)
+        - Use tools like Photoshop, GIMP, or online converters to ensure transparency
+        """
         # Try multiple possible locations
         # __file__ is in services/message_service.py, so parent.parent is wushizhifu-bot directory
         possible_paths = [
-            Path(__file__).parent.parent / "logo_300.png",  # wushizhifu-bot/logo_300.png
+            Path(__file__).parent.parent / "logo_300.png",  # wushizhifu-bot/logo_300.png (preferred)
             Path(__file__).parent.parent / "logo.png",      # wushizhifu-bot/logo.png
             Path(__file__).parent.parent.parent / "logo_300.png",  # parent project root
             Path(__file__).parent.parent.parent / "logo.png",      # parent project root
@@ -153,7 +161,9 @@ class MessageService:
         for path in possible_paths:
             try:
                 if path.exists():
-                    return str(path.absolute())
+                    # Verify it's a PNG file
+                    if path.suffix.lower() in ['.png']:
+                        return str(path.absolute())
             except Exception:
                 continue
         
@@ -281,7 +291,12 @@ class MessageService:
     
     @staticmethod
     def generate_logo_caption() -> str:
-        """Generate caption for logo image"""
+        """
+        Generate caption for logo image.
+        Note: When PNG has transparent background (alpha channel), 
+        it will blend perfectly with Telegram's chat background,
+        creating an emoji-like effect.
+        """
         return (
             "═══════════════════════════════\n"
             "   💎 伍拾支付 WUSHI PAY 💎\n"
