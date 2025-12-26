@@ -12,31 +12,35 @@ logger = logging.getLogger(__name__)
 class AIService:
     """Service for AI chat functionality with OpenAI (priority) and Gemini (fallback)"""
     
-    # Knowledge base content
+    # Knowledge base content (简体中文)
     KNOWLEDGE_BASE = """
-你是伍拾支付（WuShiPay）的智能客服助手。伍拾支付是 Telegram 生態中領先的數字資產支付解決方案提供商。
+你是伍拾支付（WuShiPay）的智能客服助手。伍拾支付是 Telegram 生态中领先的数字资产支付解决方案提供商。
 
-公司核心優勢：
+公司核心优势：
 - 99.9% 交易成功率
-- 金融級資金安全（多重簽名冷錢包）
-- 7×24小時 1對1 專屬客服
-- 極速到賬，毫秒級響應
+- 金融级资金安全（多重签名冷钱包）
+- 7×24小时 1对1 专属客服
+- 极速到账，毫秒级响应
 
 主要功能：
-- 支付寶/微信支付通道
-- USDT 充值提現
-- 匯率計算器
-- 交易記錄查詢
-- 統計信息查看
+- 支付宝/微信支付通道
+- USDT 充值提现
+- 汇率计算器
+- 交易记录查询
+- 统计信息查看
 
-常見問題：
-- 如何充值：在"我的錢包"頁面查看 USDT 充值地址，向該地址轉入 USDT 即可
-- 如何提現：在"我的錢包"頁面選擇提現，輸入提現地址和金額
-- 提現時間：通常 1-3 個工作日內到賬
-- 費率：根據用戶 VIP 等級收取不同費率，可在計算器中查看
-- 客服聯繫：Telegram @wushizhifu_jianglai
+常见问题：
+- 如何充值：在"我的钱包"页面查看 USDT 充值地址，向该地址转入 USDT 即可
+- 如何提现：在"我的钱包"页面选择提现，输入提现地址和金额
+- 提现时间：通常 1-3 个工作日内到账
+- 费率：根据用户 VIP 等级收取不同费率，可在计算器中查看
+- 客服联系：Telegram @wushizhifu_jianglai
 
-請以友好、專業、簡潔的方式回答用戶問題。如果無法回答或需要人工協助，請明確告知用戶可以點擊"轉人工客服"按鈕聯繫 @wushizhifu_jianglai。
+重要提示：
+- 请根据用户使用的语言进行回复。如果用户使用简体中文，请用简体中文回复；如果用户使用繁体中文，请用繁体中文回复；如果用户使用英文，请用英文回复；其他语言请尽量使用用户的语言回复。
+- 默认使用简体中文回复。
+- 请以友好、专业、简洁的方式回答用户问题。
+- 如果无法回答或需要人工协助，请明确告知用户可以点击"转人工客服"按钮联系 @wushizhifu_jianglai。
 """
     
     def __init__(self):
@@ -103,8 +107,12 @@ class AIService:
         try:
             openai_model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
             
+            # Build system message with language instruction
+            language_instruction = self._get_language_instruction(user_language)
+            system_message = self.KNOWLEDGE_BASE + "\n\n" + language_instruction
+            
             # Build messages for OpenAI API
-            messages = [{"role": "system", "content": self.KNOWLEDGE_BASE}]
+            messages = [{"role": "system", "content": system_message}]
             
             # Add conversation history
             if conversation_history:
@@ -134,15 +142,17 @@ class AIService:
     def _generate_with_gemini(
         self, 
         user_message: str, 
-        conversation_history: Optional[List[Dict[str, str]]] = None
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        user_language: Optional[str] = None
     ) -> Optional[str]:
         """Generate response using Gemini"""
         if not self.gemini_available or not self.gemini_model:
             return None
         
         try:
-            # Build prompt with knowledge base and conversation history
-            prompt = self.KNOWLEDGE_BASE + "\n\n"
+            # Build prompt with knowledge base, language instruction, and conversation history
+            language_instruction = self._get_language_instruction(user_language)
+            prompt = self.KNOWLEDGE_BASE + "\n\n" + language_instruction + "\n\n"
             
             # Add conversation history if available
             if conversation_history:
@@ -169,7 +179,8 @@ class AIService:
     def generate_response(
         self, 
         user_message: str, 
-        conversation_history: Optional[List[Dict[str, str]]] = None
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        user_language: Optional[str] = None
     ) -> str:
         """
         Generate AI response to user message with automatic fallback.
@@ -178,6 +189,7 @@ class AIService:
         Args:
             user_message: User's message
             conversation_history: List of previous messages [{"role": "user|assistant", "content": "..."}]
+            user_language: User's language code (e.g., 'zh', 'zh-CN', 'zh-TW', 'en'). Default: 'zh-CN' (简体中文)
             
         Returns:
             AI generated response
@@ -188,9 +200,20 @@ class AIService:
         answer = None
         used_provider = None
         
+        # Normalize user language (default to zh-CN for Simplified Chinese)
+        if not user_language:
+            user_language = "zh-CN"
+        elif user_language.startswith("zh"):
+            # zh, zh-CN -> zh-CN (简体中文)
+            # zh-TW, zh-HK -> zh-TW (繁体中文)
+            if user_language in ["zh-TW", "zh-HK", "zh-Hant"]:
+                user_language = "zh-TW"
+            else:
+                user_language = "zh-CN"
+        
         # Try OpenAI first (priority)
         if self.openai_available:
-            answer = self._generate_with_openai(user_message, conversation_history)
+            answer = self._generate_with_openai(user_message, conversation_history, user_language)
             if answer:
                 used_provider = "openai"
                 self.current_provider = "openai"
@@ -198,7 +221,7 @@ class AIService:
         # Fallback to Gemini if OpenAI failed or unavailable
         if not answer and self.gemini_available:
             logger.info("OpenAI failed or unavailable, falling back to Gemini")
-            answer = self._generate_with_gemini(user_message, conversation_history)
+            answer = self._generate_with_gemini(user_message, conversation_history, user_language)
             if answer:
                 used_provider = "gemini"
                 self.current_provider = "gemini"

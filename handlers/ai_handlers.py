@@ -89,6 +89,9 @@ async def handle_ai_message(message: Message):
         if not user_text:
             return  # Skip non-text messages
         
+        # Get user's language code (default to zh-CN for Simplified Chinese)
+        user_language = getattr(message.from_user, "language_code", None) or "zh-CN"
+        
         # Handle /exit command to exit AI mode
         if user_text.lower() == '/exit':
             # Clear conversation history
@@ -134,8 +137,8 @@ async def handle_ai_message(message: Message):
         except:
             pass
         
-        # Generate AI response
-        ai_response = ai_service.generate_response(user_text, history)
+        # Generate AI response with user's language
+        ai_response = ai_service.generate_response(user_text, history, user_language)
         
         # Add AI response to history
         add_to_history(user_id, "assistant", ai_response)
