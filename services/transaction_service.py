@@ -89,8 +89,36 @@ class TransactionService:
         if status == "paid":
             transaction = TransactionRepository.get_transaction(order_id)
             if transaction:
-                UserRepository.update_statistics(
-                    transaction['user_id'],
-                    transaction['amount']
-                )
+                user_id = transaction['user_id']
+                amount = float(transaction['amount'])
+                
+                # Update user statistics
+                UserRepository.update_statistics(user_id, amount)
+                
+                # Check if this is user's first transaction and trigger referral rewards
+                try:
+                    from database.referral_repository import ReferralRepository
+                    from database.transaction_repository import TransactionRepository as TR
+                    
+                    # Check if this is first successful transaction
+                    previous_paid = TR.get_user_transactions(
+                        user_id, limit=1, status='paid'
+                    )
+                    
+                    # If this is the only paid transaction, it's the first one
+                    if len(previous_paid) == 1 and previous_paid[0]['order_id'] == order_id:
+                        # Trigger referral rewards
+                        ReferralRepository.update_referral_status(
+                            user_id, 'rewarded', amount
+                        )
+                        
+                        # Give new user reward (5 USDT)
+                        ReferralRepository.create_reward(
+                            user_id, 'new_user_bonus', 5.0, None,
+                            "新用户首次交易红包"
+                        )
+                        
+                        logger.info(f"Triggered referral rewards for user {user_id}, first transaction {order_id}")
+                except Exception as e:
+                    logger.error(f"Error triggering referral rewards: {e}", exc_info=True)
 

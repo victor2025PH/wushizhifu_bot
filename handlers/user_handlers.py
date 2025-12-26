@@ -21,6 +21,7 @@ async def cmd_start(message: Message):
     """
     Handle /start command.
     Sends professional personalized welcome message.
+    Also handles referral code from /start?ref=CODE
     """
     try:
         user = message.from_user
@@ -28,11 +29,37 @@ async def cmd_start(message: Message):
         # Check if user is new
         is_new_user = UserService.is_new_user(user.id)
         
+        # Check for referral code in command args
+        referral_code = None
+        if message.text and len(message.text.split()) > 1:
+            args = message.text.split()[1]
+            if args.startswith("ref_"):
+                referral_code = args[4:]  # Remove "ref_" prefix
+        
+        # Handle referral if code exists and user is new
+        if referral_code and is_new_user:
+            try:
+                from database.referral_repository import ReferralRepository
+                
+                # Get referrer info
+                code_info = ReferralRepository.get_referral_by_code(referral_code)
+                if code_info:
+                    referrer_id = code_info['user_id']
+                    # Create referral relationship
+                    ReferralRepository.create_referral(referrer_id, user.id, referral_code)
+                    logger.info(f"User {user.id} registered via referral code {referral_code} from {referrer_id}")
+            except Exception as e:
+                logger.error(f"Error processing referral code: {e}", exc_info=True)
+        
         # Check if user is admin
         is_admin = AdminRepository.is_admin(user.id)
         
         # Generate professional welcome message
         welcome_text = MessageService.generate_welcome_message(user, is_new_user)
+        
+        # Add referral welcome message if applicable
+        if referral_code and is_new_user:
+            welcome_text += "\n\n🎁 *您已通过好友邀请注册，首次交易可获得 5 USDT 红包！*"
         
         # Send message with keyboard (pass admin status)
         await message.answer(
@@ -42,7 +69,7 @@ async def cmd_start(message: Message):
         )
         
         # Log user interaction
-        logger.info(f"User {user.id} ({user.username or 'no username'}) sent /start command (new: {is_new_user})")
+        logger.info(f"User {user.id} ({user.username or 'no username'}) sent /start command (new: {is_new_user}, ref: {referral_code or 'none'})")
         
     except Exception as e:
         logger.error(f"Error in cmd_start: {e}", exc_info=True)
