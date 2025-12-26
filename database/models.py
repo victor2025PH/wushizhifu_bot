@@ -208,6 +208,132 @@ def init_database():
             ON sensitive_words(word)
         """)
         
+        # Referral codes table (推荐码)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS referral_codes (
+                user_id BIGINT PRIMARY KEY,
+                referral_code VARCHAR(50) UNIQUE NOT NULL,
+                total_invites INTEGER DEFAULT 0,
+                successful_invites INTEGER DEFAULT 0,
+                total_rewards DECIMAL(15,2) DEFAULT 0,
+                lottery_entries INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_referral_codes_code 
+            ON referral_codes(referral_code)
+        """)
+        
+        # Referrals table (推荐关系)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS referrals (
+                referral_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                referrer_id BIGINT NOT NULL,
+                referred_id BIGINT NOT NULL,
+                referral_code VARCHAR(50) NOT NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                first_transaction_at TIMESTAMP,
+                reward_amount DECIMAL(15,2) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (referrer_id) REFERENCES users(user_id),
+                FOREIGN KEY (referred_id) REFERENCES users(user_id),
+                UNIQUE(referred_id)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_referrals_referrer 
+            ON referrals(referrer_id)
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_referrals_referred 
+            ON referrals(referred_id)
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_referrals_status 
+            ON referrals(status)
+        """)
+        
+        # Referral rewards table (奖励记录)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS referral_rewards (
+                reward_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id BIGINT NOT NULL,
+                reward_type VARCHAR(20) NOT NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                referral_id INTEGER,
+                description TEXT,
+                status VARCHAR(20) DEFAULT 'pending',
+                paid_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id),
+                FOREIGN KEY (referral_id) REFERENCES referrals(referral_id)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_referral_rewards_user 
+            ON referral_rewards(user_id)
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_referral_rewards_status 
+            ON referral_rewards(status)
+        """)
+        
+        # Lottery entries table (抽奖记录)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS lottery_entries (
+                entry_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id BIGINT NOT NULL,
+                prize_level INTEGER NOT NULL,
+                prize_amount DECIMAL(15,2) NOT NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                claimed_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_lottery_entries_user 
+            ON lottery_entries(user_id)
+        """)
+        
+        # Monthly rankings table (月度排行榜)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS monthly_rankings (
+                ranking_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id BIGINT NOT NULL,
+                month VARCHAR(7) NOT NULL,
+                invite_count INTEGER DEFAULT 0,
+                rank INTEGER,
+                reward_amount DECIMAL(15,2) DEFAULT 0,
+                status VARCHAR(20) DEFAULT 'pending',
+                paid_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(user_id),
+                UNIQUE(user_id, month)
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_monthly_rankings_month 
+            ON monthly_rankings(month)
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_monthly_rankings_user_month 
+            ON monthly_rankings(user_id, month)
+        """)
+        
         # Initialize default rate configs
         cursor.execute("SELECT COUNT(*) FROM rate_configs")
         if cursor.fetchone()[0] == 0:

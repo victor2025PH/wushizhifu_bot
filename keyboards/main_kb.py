@@ -72,11 +72,15 @@ def get_main_keyboard(user_id: int = None, is_admin: bool = False) -> InlineKeyb
         )
     ])
     
-    # Row 5: Statistics (Bot 內顯示，因為 MiniApp 沒有)
+    # Row 5: Statistics and Referral (Bot 內顯示)
     keyboard_rows.append([
         InlineKeyboardButton(
             text="📊 统计信息",
             callback_data="statistics"
+        ),
+        InlineKeyboardButton(
+            text="🎁 分享有礼",
+            callback_data="referral_main"
         )
     ])
     
