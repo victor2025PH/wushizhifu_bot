@@ -11,7 +11,7 @@ from database.user_repository import UserRepository
 from database.transaction_repository import TransactionRepository
 from services.transaction_service import TransactionService
 from database.db import db
-from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown, format_separator
+from utils.text_utils import escape_markdown_v2, format_amount_markdown, format_number_markdown, format_separator, format_datetime_markdown
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -198,33 +198,115 @@ async def callback_wallet_withdraw(callback: CallbackQuery):
 
 @router.callback_query(F.data == "wallet_details")
 async def callback_wallet_details(callback: CallbackQuery):
-    """Handle wallet details"""
+    """Handle wallet details with enhanced display"""
     try:
         user_id = callback.from_user.id
-        transactions = TransactionRepository.get_user_transactions(user_id, limit=20)
+        
+        # Get user info
+        user = UserRepository.get_user(user_id)
+        if not user:
+            await callback.answer("❌ 用户信息不存在", show_alert=True)
+            return
+        
+        # Calculate balance and today's statistics
+        cursor = db.execute("""
+            SELECT transaction_type, actual_amount 
+            FROM transactions 
+            WHERE user_id = ? AND status = 'paid'
+        """, (user_id,))
+        all_transactions = cursor.fetchall()
+        
+        balance = 0.0
+        for trans in all_transactions:
+            if trans['transaction_type'] == 'receive':
+                balance += float(trans['actual_amount'])
+            elif trans['transaction_type'] == 'pay':
+                balance -= float(trans['actual_amount'])
+        
+        # Get today's statistics
+        today = datetime.now().strftime("%Y-%m-%d")
+        cursor = db.execute("""
+            SELECT transaction_type, actual_amount 
+            FROM transactions 
+            WHERE user_id = ? AND status = 'paid' 
+            AND DATE(created_at) = DATE('now')
+        """, (user_id,))
+        today_transactions = cursor.fetchall()
+        
+        today_receive = sum(float(t['actual_amount']) for t in today_transactions 
+                           if t['transaction_type'] == 'receive')
+        today_pay = sum(float(t['actual_amount']) for t in today_transactions 
+                       if t['transaction_type'] == 'pay')
+        
+        # Get recent transactions
+        transactions = TransactionRepository.get_user_transactions(user_id, limit=10)
+        
+        # Build header with account overview
+        separator = format_separator(30)
+        balance_str = format_amount_markdown(balance, currency_symbol="USDT")
+        today_receive_str = format_amount_markdown(today_receive)
+        today_pay_str = format_amount_markdown(today_pay, currency_symbol="USDT")
         
         if not transactions:
-            text = "*📊 钱包明细*\n\n暂无交易记录"
+            text = (
+                f"{separator}\n"
+                f"  *📊 钱包明细*\n"
+                f"{separator}\n\n"
+                
+                f"*💎 账户概览*\n"
+                f"{separator}\n"
+                f"💰 *当前余额*：{balance_str}\n"
+                f"📈 *今日收入*：{today_receive_str}\n"
+                f"📉 *今日支出*：{today_pay_str}\n\n"
+                
+                f"{separator}\n\n"
+                f"*📋 交易记录*\n"
+                f"{separator}\n\n"
+                f"暂无交易记录\n\n"
+                f"开始您的第一笔交易吧！💫"
+            )
         else:
-            text = "*📊 钱包明细*\n\n*最近 10 笔交易：*\n\n"
+            text = (
+                f"{separator}\n"
+                f"  *📊 钱包明细*\n"
+                f"{separator}\n\n"
+                
+                f"*💎 账户概览*\n"
+                f"{separator}\n"
+                f"💰 *当前余额*：{balance_str}\n"
+                f"📈 *今日收入*：{today_receive_str}\n"
+                f"📉 *今日支出*：{today_pay_str}\n\n"
+                
+                f"*📋 最近交易记录*\n"
+                f"{separator}\n\n"
+            )
             
             for trans in transactions[:10]:
                 status_icon = "✅" if trans['status'] == 'paid' else "⏳" if trans['status'] == 'pending' else "❌"
                 type_icon = "💳" if trans['transaction_type'] == 'receive' else "📤"
+                
+                # Fix: Properly escape the amount sign
                 amount_sign = "+" if trans['transaction_type'] == 'receive' else "-"
+                amount_sign_escaped = escape_markdown_v2(amount_sign)
                 
                 amount_str = format_amount_markdown(trans['actual_amount'])
                 order_id_short = escape_markdown_v2(trans['order_id'][:16] + "...")
-                created_at_escaped = escape_markdown_v2(str(trans['created_at']))
+                
+                # Fix: Use format_datetime_markdown for proper date formatting
+                created_at_formatted = format_datetime_markdown(trans['created_at'])
                 
                 text += (
-                    f"{status_icon} {type_icon} {amount_sign}{amount_str}\n"
-                    f"   {created_at_escaped} \\| `{order_id_short}`\n\n"
+                    f"{status_icon} {type_icon} {amount_sign_escaped}{amount_str}\n"
+                    f"   {created_at_formatted} \\| `{order_id_short}`\n\n"
                 )
+            
+            if len(transactions) >= 10:
+                text += f"\n_显示最近 10 笔交易，查看全部记录请点击下方按钮_"
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="📜 查看全部记录", callback_data="transactions")
+                InlineKeyboardButton(text="📜 查看全部记录", callback_data="transactions"),
+                InlineKeyboardButton(text="🔄 刷新", callback_data="wallet_details")
             ],
             [
                 InlineKeyboardButton(text="🔙 返回钱包", callback_data="wallet")
