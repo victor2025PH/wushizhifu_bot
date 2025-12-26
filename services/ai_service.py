@@ -195,7 +195,13 @@ class AIService:
             AI generated response
         """
         if not self.is_available():
-            return "抱歉，AI 服務暫時不可用，請聯繫人工客服 @wushizhifu_jianglai"
+            # Return message in user's language
+            if user_language == "zh-TW":
+                return "抱歉，AI 服務暫時不可用，請聯繫人工客服 @wushizhifu_jianglai"
+            elif user_language and user_language.startswith("en"):
+                return "Sorry, AI service is temporarily unavailable. Please contact customer service @wushizhifu_jianglai"
+            else:
+                return "抱歉，AI 服务暂时不可用，请联系人工客服 @wushizhifu_jianglai"
         
         answer = None
         used_provider = None
@@ -228,11 +234,23 @@ class AIService:
         
         if not answer:
             logger.error("Both OpenAI and Gemini failed to generate response")
-            return "抱歉，處理您的問題時遇到錯誤，請聯繫人工客服 @wushizhifu_jianglai"
+            # Return error message in user's language
+            if user_language == "zh-TW":
+                return "抱歉，處理您的問題時遇到錯誤，請聯繫人工客服 @wushizhifu_jianglai"
+            elif user_language and user_language.startswith("en"):
+                return "Sorry, an error occurred while processing your request. Please contact customer service @wushizhifu_jianglai"
+            else:
+                return "抱歉，处理您的问题时遇到错误，请联系人工客服 @wushizhifu_jianglai"
         
         # Check if response indicates need for human support
         if self._should_escalate_to_human(answer):
-            return answer + "\n\n如果以上信息無法解決您的問題，請點擊下方按鈕聯繫人工客服。"
+            # Add escalation message in user's language
+            if user_language == "zh-TW":
+                return answer + "\n\n如果以上信息無法解決您的問題，請點擊下方按鈕聯繫人工客服。"
+            elif user_language and user_language.startswith("en"):
+                return answer + "\n\nIf the above information cannot solve your problem, please click the button below to contact customer service."
+            else:
+                return answer + "\n\n如果以上信息无法解决您的问题，请点击下方按钮联系人工客服。"
         
         return answer
     
