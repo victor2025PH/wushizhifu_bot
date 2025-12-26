@@ -1,6 +1,7 @@
 """
 Message service for generating professional messages
 """
+import asyncio
 import os
 from datetime import datetime
 from pathlib import Path
@@ -182,7 +183,7 @@ class MessageService:
     
     @staticmethod
     def generate_welcome_card(user, is_new_user: bool = False) -> str:
-        """Generate personalized welcome card (Step 3)"""
+        """Generate personalized welcome card (Step 2) - Simplified without borders"""
         user_display_name = get_user_display_name(user)
         
         # Get current time for greeting
@@ -204,7 +205,7 @@ class MessageService:
         if getattr(user, "is_premium", False):
             user_info_parts.append("⭐ *Premium 会员*")
         
-        user_info_text = " \\| ".join(user_info_parts) if user_info_parts else ""
+        user_info_text = "\n".join(user_info_parts) if user_info_parts else ""
         
         # Get user data for status
         user_data = UserService.get_user(user.id)
@@ -217,69 +218,110 @@ class MessageService:
             welcome_title = f"✨ *{time_greeting}，{escape_markdown_v2(user_display_name)} \\!*"
             status_line = f"*账户状态: 正常 \\| 消息数: {message_count}*"
         
-        card_text = (
-            "╔═══════════════════════════════════════╗\n"
-            f"║  {welcome_title}\n"
-            f"║  {status_line}\n"
-        )
+        card_text = f"{welcome_title}\n{status_line}"
         
         if user_info_text:
-            card_text += f"║  {user_info_text}\n"
-        
-        card_text += "╚═══════════════════════════════════════╝"
+            card_text += f"\n{user_info_text}"
         
         return card_text
     
     @staticmethod
     def generate_system_status_panel() -> str:
-        """Generate system status monitoring panel (Step 4)"""
+        """Generate system status monitoring panel (Step 3) - Simplified without borders"""
         current_time = datetime.utcnow().strftime("%Y\\-%m\\-%d %H:%M UTC")
         
         panel_text = (
-            "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓\n"
-            "┃  📊 *系统状态实时监控*            ┃\n"
-            "┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫\n"
-            "┃  🟢 *服务状态*: 在线 \\(100\\%\\)    ┃\n"
-            "┃  🔒 *安全通道*: TLS 1\\.3 已建立   ┃\n"
-            "┃  ⚡ *响应时间*: < 50ms            ┃\n"
-            "┃  🛡️  *风控系统*: 实时监控中      ┃\n"
-            f"┃  📅 *当前时间*: `{current_time}` ┃\n"
-            "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
+            "📊 *系统状态实时监控*\n\n"
+            "🟢 *服务状态*: 在线 \\(100\\%\\) \\|\n"
+            "🔒 *安全通道*: TLS 1\\.3 已建立 \\|\n"
+            "⚡ *响应时间*: < 50ms \\|\n"
+            "🛡️  *风控系统*: 实时监控中 \\|\n"
+            f"📅 *当前时间*: `{current_time}`"
         )
         
         return panel_text
     
     @staticmethod
-    def generate_service_highlights(user_display_name: str) -> str:
-        """Generate service highlights section (Step 5)"""
-        user_name_escaped = escape_markdown_v2(user_display_name)
+    async def generate_service_highlights_typing(bot_or_message, user_display_name: str = None):
+        """
+        Generate service highlights with typing effect (Step 4)
+        Types out "伍拾支付企业级自动化结算中心" character by character
         
-        highlights_text = (
-            "💎 *伍拾支付企业级自动化结算中心*\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        Args:
+            bot_or_message: Can be either a Message object or Bot object for sending messages
+        """
+        title_text = "💎 "
+        title_chars = "伍拾支付企业级自动化结算中心"
+        
+        # Determine if it's a Message or Bot
+        if hasattr(bot_or_message, 'answer'):
+            # It's a Message object
+            send_method = bot_or_message.answer
+            edit_method = None
+            current_msg = None
+        else:
+            # It's a Bot object - we'll need chat_id
+            raise ValueError("generate_service_highlights_typing requires a Message object")
+        
+        # Send initial message with just the icon
+        current_msg = await send_method(
+            text=f"{title_text}_",
+            parse_mode="MarkdownV2"
+        )
+        
+        # Type out each character with 0.5 second delay
+        for i, char in enumerate(title_chars):
+            typed_so_far = title_text + title_chars[:i+1]
+            try:
+                await current_msg.edit_text(
+                    text=f"{escape_markdown_v2(typed_so_far)}_",
+                    parse_mode="MarkdownV2"
+                )
+            except Exception:
+                # If edit fails, send new message
+                try:
+                    await current_msg.delete()
+                except:
+                    pass
+                current_msg = await send_method(
+                    text=f"{escape_markdown_v2(typed_so_far)}_",
+                    parse_mode="MarkdownV2"
+                )
+            await asyncio.sleep(0.5)
+        
+        # Final message with complete title and service list
+        final_text = (
+            f"{title_text}*{escape_markdown_v2(title_chars)}*\n\n"
             "✨ *我们为您提供：*\n\n"
             "🕐 *7×24小时* 不间断服务\n"
             "🏢 *企业级* 代收代付解决方案\n"
             "🏦 *银行级* 资金安全保障\n"
-            "⚡ *毫秒级* 交易处理速度\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            "⚡ *毫秒级* 交易处理速度"
         )
         
-        return highlights_text
+        try:
+            await current_msg.edit_text(
+                text=final_text,
+                parse_mode="MarkdownV2"
+            )
+        except Exception:
+            try:
+                await current_msg.delete()
+            except:
+                pass
+            await send_method(
+                text=final_text,
+                parse_mode="MarkdownV2"
+            )
     
     @staticmethod
     def generate_exchange_rate_card() -> str:
-        """Generate exchange rate card (Step 6)"""
+        """Generate exchange rate card (Step 5) - Simplified without borders"""
         rate_card = (
             "📈 *今日汇率概览*\n\n"
-            "╭─────────────────────────╮\n"
-            "│ 🇺🇸 *USDT/CNY*: *7\\.42*  │\n"
-            "│    \\(实时锁定\\)          │\n"
-            "│                          │\n"
-            "│ ⚡ *平均到账*: *3\\.2秒*  │\n"
-            "│                          │\n"
-            "│ 💱 *24H交易量*: *$12\\.8M*│\n"
-            "╰─────────────────────────╯"
+            "🇺🇸 *USDT/CNY*: *7\\.42* \\(实时锁定\\) \\|\n"
+            "⚡ *平均到账*: *3\\.2秒* \\|\n"
+            "💱 *24H交易量*: *$12\\.8M*"
         )
         
         return rate_card

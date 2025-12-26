@@ -62,55 +62,28 @@ async def cmd_start(message: Message):
         
         if logo_path:
             try:
-                # Send LOGO as document to preserve transparency (PNG with alpha channel)
-                # This ensures the transparent background is maintained like an emoji
+                # Send LOGO as photo to show transparent background properly
                 logo_file = FSInputFile(logo_path)
-                
-                # Try sending as document first (better for transparent PNG)
-                # If that fails, fallback to photo
-                try:
-                    await message.answer_document(
-                        document=logo_file,
-                        caption=MessageService.generate_logo_caption(),
-                        parse_mode="MarkdownV2"
-                    )
-                except Exception:
-                    # Fallback: send as photo (Telegram should preserve transparency if PNG has alpha channel)
-                    await message.answer_photo(
-                        photo=logo_file,
-                        caption=MessageService.generate_logo_caption(),
-                        parse_mode="MarkdownV2"
-                    )
-                
+                await message.answer_photo(
+                    photo=logo_file
+                )
                 logger.info(f"Successfully sent LOGO from {logo_path}")
+                
+                # Send caption as separate message for cleaner look
+                await asyncio.sleep(0.3)
+                await message.answer(
+                    text=MessageService.generate_logo_caption(),
+                    parse_mode="MarkdownV2"
+                )
             except Exception as e:
                 logger.warning(f"Could not send logo image: {e}", exc_info=True)
         else:
             logger.warning("Logo file not found, skipping image step")
         
-        # Small delay before next step
-        await asyncio.sleep(0.3)
+        # Delay before next step (1 second per block)
+        await asyncio.sleep(1.0)
         
-        # === STEP 2: Loading Animation ===
-        try:
-            loading_text = MessageService.generate_loading_animation()
-            loading_msg = await message.answer(
-                text=loading_text,
-                parse_mode="MarkdownV2"
-            )
-            await asyncio.sleep(0.5)  # Show loading for 0.5 seconds
-            
-            # Delete loading message
-            try:
-                await loading_msg.delete()
-            except:
-                pass
-        except Exception as e:
-            logger.warning(f"Error showing loading animation: {e}")
-        
-        await asyncio.sleep(0.2)
-        
-        # === STEP 3: Personalized Welcome Card ===
+        # === STEP 2: Personalized Welcome Message ===
         try:
             welcome_card = MessageService.generate_welcome_card(user, is_new_user)
             await message.answer(
@@ -120,9 +93,9 @@ async def cmd_start(message: Message):
         except Exception as e:
             logger.error(f"Error sending welcome card: {e}", exc_info=True)
         
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(1.0)
         
-        # === STEP 4: System Status Panel ===
+        # === STEP 3: System Status Panel ===
         try:
             status_panel = MessageService.generate_system_status_panel()
             await message.answer(
@@ -132,23 +105,22 @@ async def cmd_start(message: Message):
         except Exception as e:
             logger.error(f"Error sending status panel: {e}", exc_info=True)
         
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(1.0)
         
-        # === STEP 5: Service Highlights ===
+        # === STEP 4: Service Highlights with Typing Effect ===
         try:
             from utils.text_utils import get_user_display_name
             user_display_name = get_user_display_name(user)
-            highlights = MessageService.generate_service_highlights(user_display_name)
-            await message.answer(
-                text=highlights,
-                parse_mode="MarkdownV2"
+            # Generate typing effect message
+            typing_message = await MessageService.generate_service_highlights_typing(
+                message, user_display_name
             )
         except Exception as e:
             logger.error(f"Error sending highlights: {e}", exc_info=True)
         
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(1.0)
         
-        # === STEP 6: Exchange Rate Card ===
+        # === STEP 5: Exchange Rate Card ===
         try:
             rate_card = MessageService.generate_exchange_rate_card()
             await message.answer(
@@ -158,7 +130,7 @@ async def cmd_start(message: Message):
         except Exception as e:
             logger.error(f"Error sending rate card: {e}", exc_info=True)
         
-        await asyncio.sleep(0.3)
+        await asyncio.sleep(1.0)
         
         # === STEP 7: Action Prompt + Keyboard ===
         try:
