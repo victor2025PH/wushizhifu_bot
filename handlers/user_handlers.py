@@ -176,34 +176,5 @@ async def callback_statistics(callback: CallbackQuery):
         await callback.answer("❌ 获取统计信息失败，请稍后再试", show_alert=True)
 
 
-@user_router.callback_query(F.data == "settings")
-async def callback_settings(callback: CallbackQuery):
-    """Handle settings callback"""
-    try:
-        from database.admin_repository import AdminRepository
-        
-        user_id = callback.from_user.id
-        is_admin = AdminRepository.is_admin(user_id)
-        
-        text = (
-            "*⚙️ 设置*\n\n"
-            "功能开发中\\.\\.\\.\n\n"
-        )
-        
-        if is_admin:
-            text += "您拥有管理员权限，可使用 `\\/admin` 命令访问管理面板"
-        
-        # Get admin status for keyboard
-        is_admin = AdminRepository.is_admin(callback.from_user.id)
-        
-        await callback.message.edit_text(
-            text=text,
-            parse_mode="MarkdownV2",
-            reply_markup=get_main_keyboard(user_id=callback.from_user.id, is_admin=is_admin)
-        )
-        await callback.answer()
-        
-    except Exception as e:
-        logger.error(f"Error in callback_settings: {e}", exc_info=True)
-        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
+# Settings callback moved to settings_handlers.py to avoid conflicts
 
