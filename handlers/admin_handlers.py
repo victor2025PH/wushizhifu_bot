@@ -3,7 +3,7 @@ Admin-related handlers (only visible to admins)
 """
 import logging
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from keyboards.main_kb import get_admin_keyboard, get_main_keyboard
 from database.admin_repository import AdminRepository
@@ -197,12 +197,13 @@ async def handle_admin_users(callback: CallbackQuery):
         text += "暂无用户数据"
     else:
         for idx, user in enumerate(recent_users[:10], 1):
-            username = user.get('username') or '无'
+            # Fix: sqlite3.Row objects use column access, not .get()
+            username = user['username'] if user['username'] else '无'
             username_display = f"@{username}" if username != '无' else "无"
-            first_name = user.get('first_name') or ''
-            vip_level = user.get('vip_level', 0)
-            user_id = user.get('user_id')
-            created_at = user.get('created_at', '')[:10] if user.get('created_at') else 'N/A'
+            first_name = user['first_name'] if user['first_name'] else ''
+            vip_level = user['vip_level'] if user['vip_level'] is not None else 0
+            user_id = user['user_id']
+            created_at = user['created_at'][:10] if user['created_at'] else 'N/A'
             
             username_escaped = escape_markdown_v2(username_display)
             first_name_escaped = escape_markdown_v2(first_name) if first_name else "未设置"
@@ -330,6 +331,7 @@ async def handle_admin_stats(callback: CallbackQuery):
     if channel_stats:
         text += f"*💳 支付渠道统计*\n"
         text += f"{separator}\n"
+        # Fix: sqlite3.Row objects use column access
         total_paid = sum(stat['count'] for stat in channel_stats)
         for stat in channel_stats:
             channel = stat['payment_channel']
@@ -465,9 +467,10 @@ async def handle_admin_verify(callback: CallbackQuery):
         )
         
         for idx, member in enumerate(pending[:10], 1):
+            # Fix: sqlite3.Row objects use column access, not .get()
             user_id = member['user_id']
-            group_title = member.get('group_title') or f"群组 {member['group_id']}"
-            joined_at = member.get('joined_at', '')[:16] if member.get('joined_at') else 'N/A'
+            group_title = member['group_title'] if member['group_title'] else f"群组 {member['group_id']}"
+            joined_at = member['joined_at'][:16] if member['joined_at'] else 'N/A'
             
             user_id_str = format_number_markdown(user_id)
             group_title_escaped = escape_markdown_v2(str(group_title))
@@ -535,11 +538,12 @@ async def handle_admin_group(callback: CallbackQuery):
         text += f"*已管理群组 \\(共 {groups_count_str} 个\\)：*\n\n"
         
         for idx, group in enumerate(groups[:10], 1):
+            # Fix: sqlite3.Row objects use column access, not .get()
             group_id = group['group_id']
-            group_title = group.get('group_title') or f"群组 {group_id}"
-            verification_enabled = group.get('verification_enabled', 0)
-            member_count = group.get('member_count', 0) or 0
-            pending_count = group.get('pending_count', 0) or 0
+            group_title = group['group_title'] if group['group_title'] else f"群组 {group_id}"
+            verification_enabled = group['verification_enabled'] if group['verification_enabled'] is not None else 0
+            member_count = group['member_count'] if group['member_count'] is not None else 0
+            pending_count = group['pending_count'] if group['pending_count'] is not None else 0
             
             group_title_escaped = escape_markdown_v2(str(group_title))
             verification_text = "已开启" if verification_enabled else "已关闭"
@@ -604,12 +608,13 @@ async def handle_admin_add(callback: CallbackQuery):
         text += "暂无管理员"
     else:
         for idx, admin in enumerate(admins[:10], 1):
+            # Fix: sqlite3.Row objects use column access, not .get()
             user_id = admin['user_id']
-            username = admin.get('username') or '无'
+            username = admin['username'] if admin['username'] else '无'
             username_display = f"@{username}" if username != '无' else "无"
-            first_name = admin.get('first_name') or ''
-            role = admin.get('role', 'admin')
-            added_at = admin.get('added_at', '')[:10] if admin.get('added_at') else 'N/A'
+            first_name = admin['first_name'] if admin['first_name'] else ''
+            role = admin['role'] if admin['role'] else 'admin'
+            added_at = admin['added_at'][:10] if admin['added_at'] else 'N/A'
             
             username_escaped = escape_markdown_v2(username_display)
             first_name_escaped = escape_markdown_v2(first_name) if first_name else "未设置"
