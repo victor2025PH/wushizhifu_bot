@@ -243,9 +243,9 @@ async def callback_wallet_details(callback: CallbackQuery):
         
         # Build header with account overview
         separator = format_separator(30)
-        balance_str = format_amount_markdown(balance, currency_symbol="USDT")
+        balance_str = format_amount_markdown(balance, currency="USDT")
         today_receive_str = format_amount_markdown(today_receive)
-        today_pay_str = format_amount_markdown(today_pay, currency_symbol="USDT")
+        today_pay_str = format_amount_markdown(today_pay, currency="USDT")
         
         if not transactions:
             text = (
