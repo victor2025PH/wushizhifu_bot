@@ -154,7 +154,11 @@ class AIService:
             
             # Generate response
             response = self.gemini_model.generate_content(prompt)
-            answer = response.text.strip()
+            # Handle both string and object response types
+            if hasattr(response, 'text'):
+                answer = response.text.strip()
+            else:
+                answer = str(response).strip()
             logger.info(f"Gemini response generated successfully")
             return answer
             
