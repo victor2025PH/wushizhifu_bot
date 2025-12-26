@@ -245,7 +245,7 @@ class MessageService:
     async def generate_service_highlights_typing(message_obj, user_display_name: str = None):
         """
         Generate service highlights with typing effect (Step 4)
-        Types out all text character by character with 0.1 second delay
+        Types out all text character by character within 3 seconds
         
         Args:
             message_obj: Message object for sending messages
@@ -253,23 +253,7 @@ class MessageService:
         import logging
         logger = logging.getLogger(__name__)
         
-        # Complete text to be typed out
-        full_text_lines = [
-            "💎 伍拾支付企业级自动化结算中心",
-            "",
-            "✨ 我们为您提供：",
-            "",
-            "🕐 7×24小时 不间断服务",
-            "🏢 企业级 代收代付解决方案",
-            "🏦 银行级 资金安全保障",
-            "⚡ 毫秒级 交易处理速度"
-        ]
-        
-        # Join with newlines to create full text
-        full_text = "\n".join(full_text_lines)
-        
-        # For MarkdownV2, we need to format with bold for some parts
-        # But for typing effect, we'll type plain text first, then format at the end
+        # All text to type out (excluding emojis from character count)
         title_part = "💎 伍拾支付企业级自动化结算中心"
         intro_part = "✨ 我们为您提供："
         services = [
@@ -279,15 +263,27 @@ class MessageService:
             "⚡ 毫秒级 交易处理速度"
         ]
         
+        # Calculate total characters (approximate, excluding emojis)
+        total_chars = len(title_part) + 2 + len(intro_part) + 2  # +2 for \n\n
+        for service in services:
+            total_chars += len(service) + 1  # +1 for \n
+        total_chars -= 5  # Subtract emoji count (they render as single chars but don't need typing delay)
+        
+        # Target: 3 seconds total, so delay per character
+        # Use slightly faster to account for processing time
+        char_delay = 2.5 / total_chars if total_chars > 0 else 0.03  # Max 2.5 seconds, leave buffer
+        
         try:
-            # Send initial empty message
+            # Send initial message with properly escaped cursor
+            cursor_text = escape_markdown_v2("_")
             current_msg = await message_obj.answer(
-                text="_",
+                text=cursor_text,
                 parse_mode="MarkdownV2"
             )
             
-            # Type out title character by character (0.1 second per char)
             typed_text = ""
+            
+            # Type out title character by character
             for char in title_part:
                 typed_text += char
                 escaped_text = escape_markdown_v2(f"{typed_text}_")
@@ -297,10 +293,10 @@ class MessageService:
                         parse_mode="MarkdownV2"
                     )
                 except Exception as e:
-                    logger.warning(f"Error editing message during typing: {e}")
-                await asyncio.sleep(0.1)
+                    logger.warning(f"Error editing during title typing: {e}")
+                await asyncio.sleep(char_delay)
             
-            # Add newline
+            # Add newlines
             typed_text += "\n\n"
             escaped_text = escape_markdown_v2(f"{typed_text}_")
             try:
@@ -310,7 +306,7 @@ class MessageService:
                 )
             except:
                 pass
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(char_delay * 2)
             
             # Type out intro line
             for char in intro_part:
@@ -323,7 +319,7 @@ class MessageService:
                     )
                 except:
                     pass
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(char_delay)
             
             # Add newlines
             typed_text += "\n\n"
@@ -335,7 +331,7 @@ class MessageService:
                 )
             except:
                 pass
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(char_delay * 2)
             
             # Type out each service line
             for service_line in services:
@@ -349,7 +345,7 @@ class MessageService:
                         )
                     except:
                         pass
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(char_delay)
                 # Add newline after each service
                 typed_text += "\n"
                 escaped_text = escape_markdown_v2(f"{typed_text}_")
@@ -360,10 +356,9 @@ class MessageService:
                     )
                 except:
                     pass
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(char_delay)
             
             # Remove cursor and format final message with MarkdownV2
-            # Apply formatting to make it look better
             final_text = (
                 f"*{escape_markdown_v2('💎 伍拾支付企业级自动化结算中心')}*\n\n"
                 f"*{escape_markdown_v2('✨ 我们为您提供：')}*\n\n"
@@ -380,19 +375,15 @@ class MessageService:
                 )
             except Exception as e:
                 logger.warning(f"Error editing final formatted message: {e}")
-                # If formatting fails, just remove the cursor
+                # If formatting fails, send new formatted message
                 try:
-                    final_plain = escape_markdown_v2(typed_text.rstrip("_"))
-                    await current_msg.edit_text(
-                        text=final_plain,
-                        parse_mode="MarkdownV2"
-                    )
+                    await current_msg.delete()
                 except:
-                    # Send new formatted message
-                    await message_obj.answer(
-                        text=final_text,
-                        parse_mode="MarkdownV2"
-                    )
+                    pass
+                await message_obj.answer(
+                    text=final_text,
+                    parse_mode="MarkdownV2"
+                )
                 
         except Exception as e:
             logger.error(f"Error in generate_service_highlights_typing: {e}", exc_info=True)
