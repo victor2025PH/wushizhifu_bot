@@ -109,6 +109,55 @@ def format_separator(length: int = 30, char: str = "-") -> str:
     return escape_markdown_v2(separator)
 
 
+def format_datetime_markdown(dt, format_str: str = '%m-%d %H:%M') -> str:
+    """
+    Format datetime for MarkdownV2 with proper escaping.
+    
+    Args:
+        dt: datetime object, string, or None
+        format_str: strftime format string (default: '%m-%d %H:%M')
+        
+    Returns:
+        Escaped datetime string for MarkdownV2
+    """
+    if dt is None:
+        return escape_markdown_v2("N/A")
+    
+    try:
+        from datetime import datetime
+        
+        if isinstance(dt, datetime):
+            formatted = dt.strftime(format_str)
+        elif isinstance(dt, str):
+            # Try to parse the string if it's a full datetime string
+            try:
+                # Try common formats
+                if 'T' in dt:
+                    dt_obj = datetime.fromisoformat(dt.replace('Z', '+00:00'))
+                elif len(dt) >= 16:
+                    # Format: "2025-12-26 10:03:00"
+                    dt_obj = datetime.strptime(dt[:19], '%Y-%m-%d %H:%M:%S')
+                else:
+                    # Use as-is and truncate
+                    formatted = dt[:16] if len(dt) > 16 else dt
+                    return escape_markdown_v2(formatted)
+                formatted = dt_obj.strftime(format_str)
+            except (ValueError, AttributeError):
+                # If parsing fails, use as-is and truncate
+                formatted = dt[:16] if len(dt) > 16 else dt
+        else:
+            # Convert to string
+            formatted = str(dt)
+            if len(formatted) > 16:
+                formatted = formatted[:16]
+        
+        return escape_markdown_v2(formatted)
+    except Exception:
+        # Fallback: just escape the string representation
+        dt_str = str(dt)[:16] if len(str(dt)) > 16 else str(dt)
+        return escape_markdown_v2(dt_str)
+
+
 def get_user_display_name(user) -> str:
     """
     Get user's display name for greeting.
