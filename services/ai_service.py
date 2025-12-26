@@ -67,7 +67,7 @@ class AIService:
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=gemini_key)
-                self.gemini_model = genai.GenerativeModel('gemini-pro')
+                self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
                 self.gemini_available = True
                 if not self.openai_available:
                     self.current_provider = "gemini"

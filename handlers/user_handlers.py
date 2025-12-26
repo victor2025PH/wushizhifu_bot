@@ -186,12 +186,12 @@ async def callback_settings(callback: CallbackQuery):
         is_admin = AdminRepository.is_admin(user_id)
         
         text = (
-            "*⚙️ 設置*\n\n"
-            "功能開發中...\n\n"
+            "*⚙️ 设置*\n\n"
+            "功能开发中\\.\\.\\.\n\n"
         )
         
         if is_admin:
-            text += "您擁有管理員權限，可使用 `\\/admin` 命令訪問管理面板"
+            text += "您拥有管理员权限，可使用 `\\/admin` 命令访问管理面板"
         
         # Get admin status for keyboard
         is_admin = AdminRepository.is_admin(callback.from_user.id)
