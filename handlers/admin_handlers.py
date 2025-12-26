@@ -74,7 +74,7 @@ async def callback_admin_menu(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_admin_menu: {e}", exc_info=True)
-        await callback.answer("❌ 系統錯誤，請稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 
 
 async def handle_admin_users(callback: CallbackQuery):

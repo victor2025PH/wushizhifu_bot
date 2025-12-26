@@ -47,7 +47,7 @@ async def cmd_start(message: Message):
     except Exception as e:
         logger.error(f"Error in cmd_start: {e}", exc_info=True)
         await message.answer(
-            "❌ 抱歉，系統暫時無法處理您的請求。請稍後再試或聯繫客服。"
+            "❌ 抱歉，系统暂时无法处理您的请求。请稍后再试或联系客服。"
         )
 
 
@@ -99,7 +99,7 @@ async def cmd_help(message: Message):
         
     except Exception as e:
         logger.error(f"Error in cmd_help: {e}", exc_info=True)
-        await message.answer("❌ 抱歉，無法顯示幫助信息。請稍後再試。")
+        await message.answer("❌ 抱歉，无法显示帮助信息。请稍后再试。")
 
 
 # 支付按鈕現在使用 web_app 跳轉到 MiniApp，不再需要這些回調
@@ -124,7 +124,7 @@ async def callback_rates(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_rates: {e}", exc_info=True)
-        await callback.answer("❌ 獲取費率信息失敗，請稍後再試", show_alert=True)
+        await callback.answer("❌ 获取费率信息失败，请稍后再试", show_alert=True)
 
 
 @user_router.callback_query(F.data == "statistics")
@@ -171,7 +171,7 @@ async def callback_statistics(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_statistics: {e}", exc_info=True)
-        await callback.answer("❌ 獲取統計信息失敗，請稍後再試", show_alert=True)
+        await callback.answer("❌ 获取统计信息失败，请稍后再试", show_alert=True)
 
 
 @user_router.callback_query(F.data == "settings")
@@ -203,5 +203,5 @@ async def callback_settings(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_settings: {e}", exc_info=True)
-        await callback.answer("❌ 系統錯誤，請稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 

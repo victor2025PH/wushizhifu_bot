@@ -39,7 +39,7 @@ async def callback_calculator(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_calculator: {e}", exc_info=True)
-        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 
 
 @router.callback_query(F.data == "calc_fee")
@@ -63,7 +63,7 @@ async def callback_calc_fee(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_calc_fee: {e}", exc_info=True)
-        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("calc_channel_"))
@@ -99,7 +99,7 @@ async def callback_calc_channel(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_calc_channel: {e}", exc_info=True)
-        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 
 
 

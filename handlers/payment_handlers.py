@@ -44,7 +44,7 @@ async def callback_pay_ali(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_pay_ali: {e}", exc_info=True)
-        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 
 
 @router.callback_query(F.data == "pay_wechat")
@@ -70,7 +70,7 @@ async def callback_pay_wechat(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_pay_wechat: {e}", exc_info=True)
-        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 
 
 @router.callback_query(F.data.in_(["payment_receive", "payment_pay"]))
@@ -108,7 +108,7 @@ async def callback_payment_type(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_payment_type: {e}", exc_info=True)
-        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 
 
 @router.callback_query(F.data.startswith("amount_"))
@@ -127,7 +127,7 @@ async def callback_amount_quick(callback: CallbackQuery):
         
     except Exception as e:
         logger.error(f"Error in callback_amount_quick: {e}", exc_info=True)
-        await callback.answer("❌ 系统错误，请稍後再試", show_alert=True)
+        await callback.answer("❌ 系统错误，请稍后再试", show_alert=True)
 
 
 async def process_amount(callback: CallbackQuery, amount: float):
