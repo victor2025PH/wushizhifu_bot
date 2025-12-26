@@ -257,18 +257,21 @@ class MessageService:
         title_chars = "伍拾支付企业级自动化结算中心"
         
         try:
-            # Send initial message with just the icon
+            # Send initial message with just the icon (properly escaped)
+            initial_text = escape_markdown_v2(f"{title_text}_")
             current_msg = await message_obj.answer(
-                text=f"{title_text}_",
+                text=initial_text,
                 parse_mode="MarkdownV2"
             )
             
             # Type out each character with 0.5 second delay
             for i, char in enumerate(title_chars):
                 typed_so_far = title_text + title_chars[:i+1]
+                # Properly escape the text
+                escaped_text = escape_markdown_v2(f"{typed_so_far}_")
                 try:
                     await current_msg.edit_text(
-                        text=f"{escape_markdown_v2(typed_so_far)}_",
+                        text=escaped_text,
                         parse_mode="MarkdownV2"
                     )
                 except Exception as e:
@@ -279,19 +282,21 @@ class MessageService:
                     except:
                         pass
                     current_msg = await message_obj.answer(
-                        text=f"{escape_markdown_v2(typed_so_far)}_",
+                        text=escaped_text,
                         parse_mode="MarkdownV2"
                     )
                 await asyncio.sleep(0.5)
             
             # Final message with complete title and service list
+            # Build final text carefully to ensure proper MarkdownV2 formatting
+            escaped_title = escape_markdown_v2(title_chars)
             final_text = (
-                f"{title_text}*{escape_markdown_v2(title_chars)}*\n\n"
-                "✨ *我们为您提供：*\n\n"
-                "🕐 *7×24小时* 不间断服务\n"
-                "🏢 *企业级* 代收代付解决方案\n"
-                "🏦 *银行级* 资金安全保障\n"
-                "⚡ *毫秒级* 交易处理速度"
+                f"{escape_markdown_v2(title_text)}*{escaped_title}*\n\n"
+                "*✨ 我们为您提供：*\n\n"
+                "*🕐 7×24小时* 不间断服务\n"
+                "*🏢 企业级* 代收代付解决方案\n"
+                "*🏦 银行级* 资金安全保障\n"
+                "*⚡ 毫秒级* 交易处理速度"
             )
             
             try:
@@ -314,13 +319,14 @@ class MessageService:
         except Exception as e:
             logger.error(f"Error in generate_service_highlights_typing: {e}", exc_info=True)
             # Fallback: send simple version without typing effect
+            escaped_title = escape_markdown_v2(title_chars)
             final_text = (
-                f"{title_text}*{escape_markdown_v2(title_chars)}*\n\n"
-                "✨ *我们为您提供：*\n\n"
-                "🕐 *7×24小时* 不间断服务\n"
-                "🏢 *企业级* 代收代付解决方案\n"
-                "🏦 *银行级* 资金安全保障\n"
-                "⚡ *毫秒级* 交易处理速度"
+                f"{escape_markdown_v2(title_text)}*{escaped_title}*\n\n"
+                "*✨ 我们为您提供：*\n\n"
+                "*🕐 7×24小时* 不间断服务\n"
+                "*🏢 企业级* 代收代付解决方案\n"
+                "*🏦 银行级* 资金安全保障\n"
+                "*⚡ 毫秒级* 交易处理速度"
             )
             await message_obj.answer(
                 text=final_text,
